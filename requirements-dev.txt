@@ -1,0 +1,5 @@
+black
+pytest
+pytest-mock
+pytest-cov
+datamodel-code-generator
