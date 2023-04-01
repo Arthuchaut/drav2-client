@@ -2,10 +2,10 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 __all__: list[str] = [
-    "TagsList",
+    "Tags",
 ]
 
 
-class TagsList(BaseModel):
-    name: Optional[str] = None
+class Tags(BaseModel):
+    name: Optional[str] = ""
     tags: Optional[list[str]] = Field([])

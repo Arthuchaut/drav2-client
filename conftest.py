@@ -10,9 +10,11 @@ _FAKE_BASE_URL: Final[str] = "http://fake_host/v2/"
 
 
 class MockedResponse:
-    def __init__(self, status_code: int, text: str) -> None:
+    def __init__(self, status_code: int, headers: dict[str, str], text: str) -> None:
         self.status_code: int = status_code
+        self.headers: dict[str, str] = headers
         self.text: str = text
+        self.content: bytes = text.encode("utf8")
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -30,12 +32,24 @@ def client() -> RegistryClient:
 @pytest.fixture
 def get_patch() -> Callable[[Any], Any]:
     def wrapper(
-        route: str, expected_obj: dict[str, Any], *, status_code: Optional[int] = 200
+        route: str,
+        *,
+        dict_obj: Optional[dict[str, Any]] = {},
+        bytes_obj: Optional[bytes] = b"",
+        headers: Optional[dict[str, str]] = {},
+        status_code: Optional[int] = 200
     ) -> Callable[[str, Any], MockedResponse]:
-        def get(self, url: str, **kwargs: Any) -> MockedResponse:
+        def get(self, url: str, **kwargs: Any) -> MockedResponse | None:
+            print("DEEEEEEEBUG:", url)
+
             if re.search(urljoin(_FAKE_BASE_URL, route), url):
+                text: str = bytes_obj.decode("utf8")
+
+                if dict_obj:
+                    text = json.dumps(dict_obj)
+
                 return MockedResponse(
-                    status_code=status_code, text=json.dumps(expected_obj)
+                    status_code=status_code, headers=headers, text=text
                 )
 
         return get

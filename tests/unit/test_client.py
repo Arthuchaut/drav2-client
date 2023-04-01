@@ -8,6 +8,39 @@ from drav2_client.exceptions import *
 from drav2_client.models import *
 
 
+class TestBaseClient:
+    @pytest.mark.parametrize(
+        "response, throwable",
+        [
+            (httpx.Response(200, request=httpx.Request("GET", "any")), None),
+            (httpx.Response(201, request=httpx.Request("GET", "any")), None),
+            (httpx.Response(204, request=httpx.Request("GET", "any")), None),
+            (httpx.Response(400, request=httpx.Request("GET", "any")), BadRequest),
+            (httpx.Response(401, request=httpx.Request("GET", "any")), Unauthorized),
+            (httpx.Response(404, request=httpx.Request("GET", "any")), NotFound),
+            (
+                httpx.Response(402, request=httpx.Request("GET", "any")),
+                UnknownHTTPError,
+            ),
+            (
+                httpx.Response(500, request=httpx.Request("GET", "any")),
+                InternalServerError,
+            ),
+        ],
+    )
+    def test__raise_for_status(
+        self,
+        response: httpx.Response,
+        throwable: type[HTTPError],
+        client: RegistryClient,
+    ) -> None:
+        if throwable:
+            with pytest.raises(throwable):
+                client._raise_for_status(response)
+        else:
+            client._raise_for_status(response)
+
+
 class TestClient:
     def test_check_version(self, client: RegistryClient, mocker: MockerFixture) -> None:
         get_mock: MagicMock = mocker.patch.object(httpx.Client, "get")
@@ -18,33 +51,20 @@ class TestClient:
         get_mock.assert_called_once_with(client.base_url, headers={})
         raise_status_mock.assert_called_once()
 
-    def test_get_tags_list(
-        self,
-        client: RegistryClient,
-        get_patch: Callable[[Any], Any],
-        mocker: MockerFixture,
-    ) -> None:
-        expected: TagsList = TagsList.construct(name="python", tags=["latest"])
-        mocker.patch.object(
-            httpx.Client, "get", get_patch(r"\w+/tags/list", expected.dict())
-        )
-        res: TagsList = client.get_tags_list("python")
-        assert res == expected
-
     @pytest.mark.parametrize(
         "status_code, expected, throwable",
         [
-            (200, TagsList.construct(name="python", tags=["latest"]), None),
-            (200, TagsList.construct(name="python"), None),
-            (401, TagsList.construct(), Unauthorized),
-            (404, TagsList.construct(), NotFound),
-            (500, TagsList.construct(), InternalServerError),
+            (200, Catalog.construct(repositories=["python", "mongo"]), None),
+            (200, Catalog.construct(repositories=[]), None),
+            (401, Catalog.construct(), Unauthorized),
+            (404, Catalog.construct(), NotFound),
+            (500, Catalog.construct(), InternalServerError),
         ],
     )
-    def test_get_tags_list(
+    def test_get_catalog(
         self,
         status_code: int,
-        expected: TagsList | None,
+        expected: Manifest,
         throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
@@ -54,15 +74,53 @@ class TestClient:
             httpx.Client,
             "get",
             get_patch(
-                r"\w+/tags/list", expected.dict(by_alias=True), status_code=status_code
+                r"_catalog",
+                dict_obj=expected.dict(by_alias=True),
+                status_code=status_code,
             ),
         )
 
         if throwable:
             with pytest.raises(throwable):
-                client.get_tags_list(expected.name)
+                client.get_catalog()
         else:
-            res: TagsList = client.get_tags_list(expected.name)
+            res: Catalog = client.get_catalog()
+            assert res == expected
+
+    @pytest.mark.parametrize(
+        "status_code, expected, throwable",
+        [
+            (200, Tags.construct(name="python", tags=["latest"]), None),
+            (200, Tags.construct(name="python"), None),
+            (401, Tags.construct(name="python"), Unauthorized),
+            (404, Tags.construct(name="python"), NotFound),
+            (500, Tags.construct(name="python"), InternalServerError),
+        ],
+    )
+    def test_get_tags(
+        self,
+        status_code: int,
+        expected: Tags,
+        throwable: type[HTTPError],
+        client: RegistryClient,
+        get_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        mocker.patch.object(
+            httpx.Client,
+            "get",
+            get_patch(
+                r"\w+/tags/list",
+                dict_obj=expected.dict(by_alias=True),
+                status_code=status_code,
+            ),
+        )
+
+        if throwable:
+            with pytest.raises(throwable):
+                client.get_tags(expected.name)
+        else:
+            res: Tags = client.get_tags(expected.name)
             assert res == expected
 
     @pytest.mark.parametrize(
@@ -80,15 +138,15 @@ class TestClient:
                 None,
             ),
             (200, Manifest.construct(name="python", tag="latest"), None),
-            (401, Manifest.construct(), Unauthorized),
-            (404, Manifest.construct(), NotFound),
-            (500, Manifest.construct(), InternalServerError),
+            (401, Manifest.construct(name="python", tag="latest"), Unauthorized),
+            (404, Manifest.construct(name="python", tag="latest"), NotFound),
+            (500, Manifest.construct(name="python", tag="latest"), InternalServerError),
         ],
     )
     def test_get_manifest(
         self,
         status_code: int,
-        expected: TagsList | None,
+        expected: Manifest,
         throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
@@ -99,7 +157,7 @@ class TestClient:
             "get",
             get_patch(
                 r"\w+/manifests/\w+",
-                expected.dict(by_alias=True),
+                dict_obj=expected.dict(by_alias=True),
                 status_code=status_code,
             ),
         )
@@ -111,4 +169,36 @@ class TestClient:
             res: Manifest = client.get_manifest(
                 name=expected.name, reference=expected.tag
             )
+            assert res == expected
+
+    @pytest.mark.parametrize(
+        "status_code, expected, throwable",
+        [
+            (200, b"hello world!", None),
+            (200, b"", None),
+            (401, b"", Unauthorized),
+            (404, b"", NotFound),
+            (500, b"", InternalServerError),
+        ],
+    )
+    def test_get_blob(
+        self,
+        status_code: int,
+        expected: bytes,
+        throwable: type[HTTPError],
+        client: RegistryClient,
+        get_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        mocker.patch.object(
+            httpx.Client,
+            "get",
+            get_patch(r"\w+/blobs/\w+", bytes_obj=expected, status_code=status_code),
+        )
+
+        if throwable:
+            with pytest.raises(throwable):
+                client.get_blob(name="any", digest="any")
+        else:
+            res: bytes = client.get_blob(name="any", digest="any")
             assert res == expected

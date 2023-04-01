@@ -55,14 +55,26 @@ class RegistryClient(_BaseClient):
         res: httpx.Response = self._client.get(self.base_url, headers=self._auth_header)
         self._raise_for_status(res)
 
-    def get_tags_list(self, name: str) -> TagsList:
+    def get_catalog(self) -> Catalog:
+        url: str = urljoin(self.base_url, "_catalog")
+        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        self._raise_for_status(res)
+        return Catalog.parse_obj(res.json())
+
+    def get_tags(self, name: str) -> Tags:
         url: str = urljoin(self.base_url, f"{name}/tags/list")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
         self._raise_for_status(res)
-        return TagsList.parse_obj(res.json())
+        return Tags.parse_obj(res.json())
 
     def get_manifest(self, name: str, reference: str) -> Manifest:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
         self._raise_for_status(res)
         return Manifest.parse_obj(res.json())
+
+    def get_blob(self, name: str, digest: str) -> bytes:
+        url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
+        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        self._raise_for_status(res)
+        return res.content
