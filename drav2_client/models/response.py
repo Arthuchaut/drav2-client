@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field, validator
 __all__: list[str] = [
     "RegistryResponse",
     "Headers",
+    "Errors",
+    "Error",
+    "Detail",
 ]
 
 
@@ -30,7 +33,22 @@ class Headers(BaseModel):
             return datetime.strptime(value, "%a, %d %b %Y %H:%M:%S %Z")
 
 
+class Detail(BaseModel):
+    name: Optional[str] = ""
+    tag: Optional[str] = Field("", alias="Tag")
+
+
+class Error(BaseModel):
+    code: Optional[str] = ""
+    message: Optional[str] = ""
+    detail: Optional[Detail] = None
+
+
+class Errors(BaseModel):
+    errors: list[Error] = Field([])
+
+
 class RegistryResponse(BaseModel):
     status_code: int
     headers: Headers
-    result: BaseModel
+    body: BaseModel

@@ -40,8 +40,6 @@ def get_patch() -> Callable[[Any], Any]:
         status_code: Optional[int] = 200
     ) -> Callable[[str, Any], MockedResponse]:
         def get(self, url: str, **kwargs: Any) -> MockedResponse | None:
-            print("DEEEEEEEBUG:", url)
-
             if re.search(urljoin(_FAKE_BASE_URL, route), url):
                 text: str = bytes_obj.decode("utf8")
 

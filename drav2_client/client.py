@@ -48,15 +48,19 @@ class _BaseClient:
         model: type[BaseModel],
         from_content: Optional[bool] = False,
     ) -> RegistryResponse:
-        if from_content:
-            result: BaseModel = model.construct(content=res.content)
+        result: BaseModel
+
+        if res.status_code >= 400:
+            result = Errors.parse_obj(res.json())
+        elif from_content:
+            result = model.construct(content=res.content)
         else:
-            result: BaseModel = model.parse_obj(res.json())
+            result = model.parse_obj(res.json())
 
         return RegistryResponse.construct(
             status_code=res.status_code,
             headers=Headers.parse_obj(res.headers),
-            result=result,
+            body=result,
         )
 
     @cached_property
@@ -77,23 +81,23 @@ class RegistryClient(_BaseClient):
     def get_catalog(self) -> RegistryResponse:
         url: str = urljoin(self.base_url, "_catalog")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
-        self._raise_for_status(res)
+        # self._raise_for_status(res)
         return self._build_response(res, Catalog)
 
     def get_tags(self, name: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/tags/list")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
-        self._raise_for_status(res)
+        # self._raise_for_status(res)
         return self._build_response(res, Tags)
 
     def get_manifest(self, name: str, reference: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
-        self._raise_for_status(res)
+        # self._raise_for_status(res)
         return self._build_response(res, Manifest)
 
     def get_blob(self, name: str, digest: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
-        self._raise_for_status(res)
+        # self._raise_for_status(res)
         return self._build_response(res, Blob, from_content=True)

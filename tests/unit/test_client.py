@@ -52,60 +52,62 @@ class TestClient:
         raise_status_mock.assert_called_once()
 
     @pytest.mark.parametrize(
-        "status_code, expected, throwable",
+        "expected",
         [
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Catalog.construct(repositories=["python", "mongo"]),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Catalog.construct(repositories=["python", "mongo"]),
             ),
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Catalog.construct(repositories=[]),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Catalog.construct(repositories=[]),
             ),
-            (
-                401,
-                RegistryResponse.construct(
-                    status_code=401,
-                    headers=Headers.construct(),
-                    result=Catalog.construct(),
+            RegistryResponse.construct(
+                status_code=401,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                Unauthorized,
             ),
-            (
-                404,
-                RegistryResponse.construct(
-                    status_code=404,
-                    headers=Headers.construct(),
-                    result=Catalog.construct(),
+            RegistryResponse.construct(
+                status_code=404,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                NotFound,
             ),
-            (
-                500,
-                RegistryResponse.construct(
-                    status_code=500,
-                    headers=Headers.construct(),
-                    result=Catalog.construct(),
+            RegistryResponse.construct(
+                status_code=500,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                InternalServerError,
             ),
         ],
     )
     def test_get_catalog(
         self,
-        status_code: int,
         expected: RegistryResponse,
-        throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
         mocker: MockerFixture,
@@ -115,73 +117,71 @@ class TestClient:
             "get",
             get_patch(
                 r"_catalog",
-                dict_obj=expected.result.dict(by_alias=True),
-                status_code=status_code,
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
             ),
         )
 
-        if throwable:
-            with pytest.raises(throwable):
-                client.get_catalog()
-        else:
-            res: Catalog = client.get_catalog()
-            assert res == expected
+        res: RegistryResponse = client.get_catalog()
+        assert res == expected
 
     @pytest.mark.parametrize(
-        "status_code, expected, throwable",
+        "expected",
         [
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Tags.construct(name="python", tags=["latest"]),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Tags.construct(name="python", tags=["latest"]),
             ),
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Tags.construct(name="python"),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Tags.construct(name="python"),
             ),
-            (
-                401,
-                RegistryResponse.construct(
-                    status_code=401,
-                    headers=Headers.construct(),
-                    result=Tags.construct(name="python"),
+            RegistryResponse.construct(
+                status_code=401,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                Unauthorized,
             ),
-            (
-                404,
-                RegistryResponse.construct(
-                    status_code=404,
-                    headers=Headers.construct(),
-                    result=Tags.construct(name="python"),
+            RegistryResponse.construct(
+                status_code=404,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                NotFound,
             ),
-            (
-                500,
-                RegistryResponse.construct(
-                    status_code=500,
-                    headers=Headers.construct(),
-                    result=Tags.construct(name="python"),
+            RegistryResponse.construct(
+                status_code=500,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                InternalServerError,
             ),
         ],
     )
     def test_get_tags(
         self,
-        status_code: int,
         expected: RegistryResponse,
-        throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
         mocker: MockerFixture,
@@ -191,81 +191,77 @@ class TestClient:
             "get",
             get_patch(
                 r"\w+/tags/list",
-                dict_obj=expected.result.dict(by_alias=True),
-                status_code=status_code,
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
             ),
         )
 
-        if throwable:
-            with pytest.raises(throwable):
-                client.get_tags(expected.result.name)
-        else:
-            res: Tags = client.get_tags(expected.result.name)
-            assert res == expected
+        res: RegistryResponse = client.get_tags("python")
+        assert res == expected
 
     @pytest.mark.parametrize(
-        "status_code, expected, throwable",
+        "expected",
         [
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Manifest.construct(
-                        schema_version=1,
-                        name="python",
-                        tag="latest",
-                        architecture="amd64",
-                        fs_layers=[
-                            FsLayer.construct(blob_sum="sha256:a3ed95caeb02ffe68c")
-                        ],
-                    ),
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Manifest.construct(
+                    schema_version=1,
+                    name="python",
+                    tag="latest",
+                    architecture="amd64",
+                    fs_layers=[FsLayer.construct(blob_sum="sha256:a3ed95caeb02ffe68c")],
                 ),
-                None,
             ),
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Manifest.construct(name="python", tag="latest"),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Manifest.construct(name="python", tag="latest"),
             ),
-            (
-                401,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Manifest.construct(name="python", tag="latest"),
+            RegistryResponse.construct(
+                status_code=401,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                Unauthorized,
             ),
-            (
-                404,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Manifest.construct(name="python", tag="latest"),
+            RegistryResponse.construct(
+                status_code=404,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                NotFound,
             ),
-            (
-                500,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Manifest.construct(name="python", tag="latest"),
+            RegistryResponse.construct(
+                status_code=500,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                InternalServerError,
             ),
         ],
     )
     def test_get_manifest(
         self,
-        status_code: int,
         expected: RegistryResponse,
-        throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
         mocker: MockerFixture,
@@ -275,94 +271,88 @@ class TestClient:
             "get",
             get_patch(
                 r"\w+/manifests/\w+",
-                dict_obj=expected.result.dict(by_alias=True),
-                status_code=status_code,
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
             ),
         )
 
-        if throwable:
-            with pytest.raises(throwable):
-                client.get_manifest(
-                    name=expected.result.name, reference=expected.result.tag
-                )
-        else:
-            res: Manifest = client.get_manifest(
-                name=expected.result.name, reference=expected.result.tag
-            )
-            assert res == expected
+        res: RegistryResponse = client.get_manifest(name="python", reference="latest")
+        assert res == expected
 
     @pytest.mark.parametrize(
-        "status_code, expected, throwable",
+        "expected",
         [
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Blob.construct(content=b"hello world!"),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Blob.construct(content=b"hello world!"),
             ),
-            (
-                200,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Blob.construct(content=b""),
-                ),
-                None,
+            RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(),
+                body=Blob.construct(content=b""),
             ),
-            (
-                401,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Blob.construct(content=b""),
+            RegistryResponse.construct(
+                status_code=401,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                Unauthorized,
             ),
-            (
-                404,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Blob.construct(content=b""),
+            RegistryResponse.construct(
+                status_code=404,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                NotFound,
             ),
-            (
-                500,
-                RegistryResponse.construct(
-                    status_code=200,
-                    headers=Headers.construct(),
-                    result=Blob.construct(content=b""),
+            RegistryResponse.construct(
+                status_code=500,
+                headers=Headers.construct(),
+                body=Errors.construct(
+                    errors=[
+                        Error.construct(
+                            code="ABC",
+                            message="Error",
+                            detail=Detail.construct(name="python"),
+                        )
+                    ]
                 ),
-                InternalServerError,
             ),
         ],
     )
     def test_get_blob(
         self,
-        status_code: int,
         expected: RegistryResponse,
-        throwable: type[HTTPError],
         client: RegistryClient,
         get_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(
-            httpx.Client,
-            "get",
-            get_patch(
+        if isinstance(expected.body, Blob):
+            patch: Callable[[Any], Any] = get_patch(
                 r"\w+/blobs/\w+",
-                bytes_obj=expected.result.content,
-                status_code=status_code,
-            ),
-        )
-
-        if throwable:
-            with pytest.raises(throwable):
-                client.get_blob(name="any", digest="any")
+                bytes_obj=expected.body.content,
+                status_code=expected.status_code,
+            )
         else:
-            res: bytes = client.get_blob(name="any", digest="any")
-            assert res == expected
+            patch: Callable[[Any], Any] = get_patch(
+                r"\w+/blobs/\w+",
+                dict_obj=expected.body.dict(),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "get", patch)
+        res: RegistryResponse = client.get_blob(name="any", digest="any")
+        assert res == expected
