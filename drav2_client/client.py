@@ -1,7 +1,7 @@
 import base64
 from functools import cached_property
 import json
-from typing import Optional
+from typing import ClassVar, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
@@ -61,22 +61,32 @@ class _BaseClient:
 
 
 class RegistryClient(_BaseClient):
+    _DEFAULT_RESULT_SIZE: ClassVar[int] = 10
+
     def check_version(self) -> None:
         res: httpx.Response = self._client.get(self.base_url, headers=self._auth_header)
         return self._build_response(res)
 
-    def get_catalog(self) -> RegistryResponse:
-        # Add pagination management from Link
-        # GET /v2/_catalog?n=<n from the request>&last=<last repository value from previous response>
+    def get_catalog(
+        self, *, size: Optional[int] = _DEFAULT_RESULT_SIZE, last: Optional[str] = ""
+    ) -> RegistryResponse:
         url: str = urljoin(self.base_url, "_catalog")
-        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        res: httpx.Response = self._client.get(
+            url, params=dict(n=size, last=last), headers=self._auth_header
+        )
         return self._build_response(res, Catalog)
 
-    def get_tags(self, name: str) -> RegistryResponse:
-        # Add pagination management from Link
-        # GET /v2/<name>/tags/list?n=<n from the request>&last=<last tag value from previous response>
+    def get_tags(
+        self,
+        name: str,
+        *,
+        size: Optional[int] = _DEFAULT_RESULT_SIZE,
+        last: Optional[str] = "",
+    ) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/tags/list")
-        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        res: httpx.Response = self._client.get(
+            url, params=dict(n=size, last=last), headers=self._auth_header
+        )
         return self._build_response(res, Tags)
 
     def get_manifest(self, name: str, reference: str) -> RegistryResponse:

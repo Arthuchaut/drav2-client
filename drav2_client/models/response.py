@@ -1,6 +1,7 @@
 from datetime import datetime
 import enum
-from typing import Optional
+import re
+from typing import ClassVar, Final, Optional
 from pydantic import BaseModel, Field, validator
 
 __all__: list[str] = [
@@ -10,6 +11,15 @@ __all__: list[str] = [
     "Error",
     "Detail",
 ]
+
+_LINK_PATTERN: Final[re.Pattern] = re.compile(
+    r'<.+last=(?P<last>.+)&n=(?P<n>.+)>; rel="(?P<rel>.+)"'
+)
+
+
+class Link(BaseModel):
+    size: int
+    last: str
 
 
 class Headers(BaseModel):
@@ -30,13 +40,19 @@ class Headers(BaseModel):
     location: Optional[str] = ""
     content_length: Optional[int] = Field(0, alias="content-length")
     content_range: Optional[int] = Field(None, alias="content-range")
-    link: Optional[str] = ""
+    link: Optional[Link] = None
 
     @validator("date", pre=True)
     def parse_date(cls, value: str | None) -> datetime | None:
         if value:
             # Sat, 01 Apr 2023 23:18:26 GMT
             return datetime.strptime(value, "%a, %d %b %Y %H:%M:%S %Z")
+
+    @validator("link", pre=True)
+    def parse_link(cls, value: str | None) -> Link | None:
+        if value and (match := _LINK_PATTERN.search(value)):
+            # <<uri>?n=<n from the request>&last=<last repository in response>>; rel="next"
+            return Link(last=match.group("last"), size=match.group("n"))
 
 
 class Detail(BaseModel):
