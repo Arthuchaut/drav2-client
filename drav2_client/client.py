@@ -63,7 +63,7 @@ class _BaseClient:
 class RegistryClient(_BaseClient):
     _DEFAULT_RESULT_SIZE: ClassVar[int] = 10
 
-    def check_version(self) -> None:
+    def check_version(self) -> RegistryResponse:
         res: httpx.Response = self._client.get(self.base_url, headers=self._auth_header)
         return self._build_response(res)
 

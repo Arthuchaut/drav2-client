@@ -12,9 +12,7 @@ __all__: list[str] = [
     "Detail",
 ]
 
-_LINK_PATTERN: Final[re.Pattern] = re.compile(
-    r'<.+last=(?P<last>.+)&n=(?P<n>.+)>; rel="(?P<rel>.+)"'
-)
+_LINK_PATTERN: Final[re.Pattern] = re.compile(r"<.+last=(?P<last>.+)&n=(?P<n>.+)>")
 
 
 class Link(BaseModel):
