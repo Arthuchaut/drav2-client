@@ -91,10 +91,18 @@ class RegistryClient(_BaseClient):
 
     def get_manifest(self, name: str, reference: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
-        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        headers: dict[str, str] = self._auth_header
+        headers |= {"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
+        res: httpx.Response = self._client.get(url, headers=headers)
         return self._build_response(res, Manifest)
 
     def get_blob(self, name: str, digest: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
         return self._build_response(res, Blob, from_content=True)
+
+    def delete_manifest(self, name: str, reference: str) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
+        headers: dict[str, str] = self._auth_header
+        res: httpx.Response = self._client.delete(url, headers=headers)
+        return self._build_response(res)

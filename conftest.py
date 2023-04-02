@@ -30,7 +30,7 @@ def client() -> RegistryClient:
 
 
 @pytest.fixture
-def get_patch() -> Callable[[Any], Any]:
+def request_patch() -> Callable[[Any], Any]:
     def wrapper(
         route: str,
         *,
@@ -39,7 +39,7 @@ def get_patch() -> Callable[[Any], Any]:
         headers: Optional[dict[str, str]] = {},
         status_code: Optional[int] = 200
     ) -> Callable[[str, Any], MockedResponse]:
-        def get(self, url: str, **kwargs: Any) -> MockedResponse | None:
+        def method(self, url: str, **kwargs: Any) -> MockedResponse | None:
             if re.search(urljoin(_FAKE_BASE_URL, route), url):
                 text: str = bytes_obj.decode("utf8")
 
@@ -50,6 +50,6 @@ def get_patch() -> Callable[[Any], Any]:
                     status_code=status_code, headers=headers, text=text
                 )
 
-        return get
+        return method
 
     return wrapper

@@ -110,10 +110,10 @@ class TestClient:
     def test_check_version(
         self,
         client: RegistryClient,
-        get_patch: Callable[[Any], Any],
+        request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(httpx.Client, "get", get_patch(r"", status_code=200))
+        mocker.patch.object(httpx.Client, "get", request_patch(r"", status_code=200))
         res: RegistryResponse = client.check_version()
         assert res.status_code is RegistryResponse.Status.OK
 
@@ -167,13 +167,13 @@ class TestClient:
         self,
         expected: RegistryResponse,
         client: RegistryClient,
-        get_patch: Callable[[Any], Any],
+        request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(
             httpx.Client,
             "get",
-            get_patch(
+            request_patch(
                 r"_catalog",
                 dict_obj=expected.body.dict(by_alias=True),
                 status_code=expected.status_code,
@@ -233,13 +233,13 @@ class TestClient:
         self,
         expected: RegistryResponse,
         client: RegistryClient,
-        get_patch: Callable[[Any], Any],
+        request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(
             httpx.Client,
             "get",
-            get_patch(
+            request_patch(
                 r"\w+/tags/list",
                 dict_obj=expected.body.dict(by_alias=True),
                 status_code=expected.status_code,
@@ -256,17 +256,23 @@ class TestClient:
                 status_code=200,
                 headers=Headers(),
                 body=Manifest(
-                    schema_version=1,
-                    name="python",
-                    tag="latest",
-                    architecture="amd64",
-                    fs_layers=[FsLayer(blob_sum="sha256:a3ed95caeb02ffe68c")],
+                    schema_version=2,
+                    config=Config(
+                        media_type="application/vnd.docker.container.image.v1+json"
+                    ),
+                    layers=[
+                        Layer(
+                            media_type="pplication/vnd.docker.image.rootfs.diff.tar.gzip",
+                            size=55045608,
+                            digest="sha256:3e440a7045683e27f8e2fa04000e0e078d8dfac0c971358ae0f8c65c13321c8e",
+                        )
+                    ],
                 ),
             ),
             RegistryResponse(
                 status_code=200,
                 headers=Headers(),
-                body=Manifest(name="python", tag="latest"),
+                body=Manifest(schema_version=2),
             ),
             RegistryResponse(
                 status_code=401,
@@ -305,13 +311,13 @@ class TestClient:
         self,
         expected: RegistryResponse,
         client: RegistryClient,
-        get_patch: Callable[[Any], Any],
+        request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(
             httpx.Client,
             "get",
-            get_patch(
+            request_patch(
                 r"\w+/manifests/\w+",
                 dict_obj=expected.body.dict(by_alias=True),
                 status_code=expected.status_code,
@@ -371,17 +377,17 @@ class TestClient:
         self,
         expected: RegistryResponse,
         client: RegistryClient,
-        get_patch: Callable[[Any], Any],
+        request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
         if isinstance(expected.body, Blob):
-            patch: Callable[[Any], Any] = get_patch(
+            patch: Callable[[Any], Any] = request_patch(
                 r"\w+/blobs/\w+",
                 bytes_obj=expected.body.content,
                 status_code=expected.status_code,
             )
         else:
-            patch: Callable[[Any], Any] = get_patch(
+            patch: Callable[[Any], Any] = request_patch(
                 r"\w+/blobs/\w+",
                 dict_obj=expected.body.dict(),
                 status_code=expected.status_code,
@@ -389,4 +395,70 @@ class TestClient:
 
         mocker.patch.object(httpx.Client, "get", patch)
         res: RegistryResponse = client.get_blob(name="any", digest="any")
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=202,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=Detail(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=Detail(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_delete_manifest(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.ACCEPTED:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/manifests/\w+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/manifests/\w+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "delete", patch)
+        res: RegistryResponse = client.delete_manifest(
+            name="python", reference="latest"
+        )
         assert res == expected
