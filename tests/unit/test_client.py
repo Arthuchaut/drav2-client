@@ -1,107 +1,165 @@
+import json
 from typing import Any, Callable
 from unittest.mock import MagicMock
 import httpx
+from pydantic import BaseModel
 import pytest
 from pytest_mock import MockerFixture
+from conftest import _FAKE_BASE_URL
 from drav2_client.client import *
-from drav2_client.exceptions import *
 from drav2_client.models import *
 
 
 class TestBaseClient:
     @pytest.mark.parametrize(
-        "response, throwable",
+        "res, model, from_content",
         [
-            (httpx.Response(200, request=httpx.Request("GET", "any")), None),
-            (httpx.Response(201, request=httpx.Request("GET", "any")), None),
-            (httpx.Response(204, request=httpx.Request("GET", "any")), None),
-            (httpx.Response(400, request=httpx.Request("GET", "any")), BadRequest),
-            (httpx.Response(401, request=httpx.Request("GET", "any")), Unauthorized),
-            (httpx.Response(404, request=httpx.Request("GET", "any")), NotFound),
             (
-                httpx.Response(402, request=httpx.Request("GET", "any")),
-                UnknownHTTPError,
+                httpx.Response(
+                    200,
+                    headers={"date": "Sat, 01 Apr 2023 23:18:26 GMT"},
+                    text=json.dumps({"name": "python", "tags": ["latest", "3.11"]}),
+                    request=None,
+                ),
+                Tags,
+                False,
             ),
             (
-                httpx.Response(500, request=httpx.Request("GET", "any")),
-                InternalServerError,
+                httpx.Response(
+                    200,
+                    headers={"date": "Sat, 01 Apr 2023 23:18:26 GMT"},
+                    content=b"Hello!",
+                    request=None,
+                ),
+                Blob,
+                True,
+            ),
+            (
+                httpx.Response(
+                    200,
+                    headers={"content-type": "hello world!"},
+                    text=json.dumps({"name": "python", "tags": ["latest", "3.11"]}),
+                    request=None,
+                ),
+                None,
+                False,
+            ),
+            (
+                httpx.Response(
+                    404,
+                    headers={"content-type": "hello world!"},
+                    text=json.dumps({"errors": [{"code": "MANIFEST_UNKNOWN"}]}),
+                    request=None,
+                ),
+                None,
+                False,
+            ),
+            (
+                httpx.Response(
+                    502,
+                    headers={"content-type": "hello world!"},
+                    request=None,
+                ),
+                None,
+                False,
             ),
         ],
     )
-    def test__raise_for_status(
+    def test__build_response(
         self,
-        response: httpx.Response,
-        throwable: type[HTTPError],
+        res: httpx.Response,
+        model: type[BaseModel] | None,
+        from_content: bool,
         client: RegistryClient,
     ) -> None:
-        if throwable:
-            with pytest.raises(throwable):
-                client._raise_for_status(response)
-        else:
-            client._raise_for_status(response)
+        expected: RegistryResponse = RegistryResponse(
+            status_code=res.status_code, headers=Headers.parse_obj(res.headers)
+        )
+
+        if res.status_code >= 500:
+            expected.body = Errors(errors=[Error(code=Error.Code.INTERNAL_ERROR)])
+        elif res.status_code >= 400:
+            expected.body = Errors.parse_obj(res.json())
+        elif model:
+            if from_content:
+                expected.body = model(content=res.content)
+            else:
+                expected.body = model.parse_obj(res.json())
+
+        res: RegistryResponse = client._build_response(res, model, from_content)
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "user_id, password, expected",
+        [
+            ("user", "password", {"Authorization": "Basic dXNlcjpwYXNzd29yZA=="}),
+            ("", "", {}),
+            (None, None, {}),
+        ],
+    )
+    def test__auth_client_property(
+        self, user_id: str | None, password: str | None, expected: dict[str, str]
+    ) -> None:
+        client: RegistryClient = RegistryClient(
+            _FAKE_BASE_URL, user_id=user_id, password=password
+        )
+        assert client._auth_header == expected
 
 
 class TestClient:
-    def test_check_version(self, client: RegistryClient, mocker: MockerFixture) -> None:
-        get_mock: MagicMock = mocker.patch.object(httpx.Client, "get")
-        raise_status_mock: MagicMock = mocker.patch.object(
-            RegistryClient, "_raise_for_status"
-        )
-        client.check_version()
-        get_mock.assert_called_once_with(client.base_url, headers={})
-        raise_status_mock.assert_called_once()
+    def test_check_version(
+        self,
+        client: RegistryClient,
+        get_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        mocker.patch.object(httpx.Client, "get", get_patch(r"", status_code=200))
+        res: RegistryResponse = client.check_version()
+        assert res.status_code is RegistryResponse.Status.OK
 
     @pytest.mark.parametrize(
         "expected",
         [
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Catalog.construct(repositories=["python", "mongo"]),
+                headers=Headers(),
+                body=Catalog(repositories=["python", "mongo"]),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Catalog.construct(repositories=[]),
+                headers=Headers(),
+                body=Catalog(repositories=[]),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=401,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=404,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=500,
-                headers=Headers.construct(),
-                body=Errors.construct(
-                    errors=[
-                        Error.construct(
-                            code="ABC",
-                            message="Error",
-                            detail=Detail.construct(name="python"),
-                        )
-                    ]
-                ),
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
             ),
         ],
     )
@@ -128,54 +186,46 @@ class TestClient:
     @pytest.mark.parametrize(
         "expected",
         [
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Tags.construct(name="python", tags=["latest"]),
+                headers=Headers(),
+                body=Tags(name="python", tags=["latest"]),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Tags.construct(name="python"),
+                headers=Headers(),
+                body=Tags(name="python"),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=401,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=404,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=500,
-                headers=Headers.construct(),
-                body=Errors.construct(
-                    errors=[
-                        Error.construct(
-                            code="ABC",
-                            message="Error",
-                            detail=Detail.construct(name="python"),
-                        )
-                    ]
-                ),
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
             ),
         ],
     )
@@ -202,60 +252,52 @@ class TestClient:
     @pytest.mark.parametrize(
         "expected",
         [
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Manifest.construct(
+                headers=Headers(),
+                body=Manifest(
                     schema_version=1,
                     name="python",
                     tag="latest",
                     architecture="amd64",
-                    fs_layers=[FsLayer.construct(blob_sum="sha256:a3ed95caeb02ffe68c")],
+                    fs_layers=[FsLayer(blob_sum="sha256:a3ed95caeb02ffe68c")],
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Manifest.construct(name="python", tag="latest"),
+                headers=Headers(),
+                body=Manifest(name="python", tag="latest"),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=401,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=404,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=500,
-                headers=Headers.construct(),
-                body=Errors.construct(
-                    errors=[
-                        Error.construct(
-                            code="ABC",
-                            message="Error",
-                            detail=Detail.construct(name="python"),
-                        )
-                    ]
-                ),
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
             ),
         ],
     )
@@ -282,54 +324,46 @@ class TestClient:
     @pytest.mark.parametrize(
         "expected",
         [
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Blob.construct(content=b"hello world!"),
+                headers=Headers(),
+                body=Blob(content=b"hello world!"),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=200,
-                headers=Headers.construct(),
-                body=Blob.construct(content=b""),
+                headers=Headers(),
+                body=Blob(content=b""),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=401,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=404,
-                headers=Headers.construct(),
-                body=Errors.construct(
+                headers=Headers(),
+                body=Errors(
                     errors=[
-                        Error.construct(
-                            code="ABC",
+                        Error(
+                            code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail.construct(name="python"),
+                            detail=Detail(name="python"),
                         )
                     ]
                 ),
             ),
-            RegistryResponse.construct(
+            RegistryResponse(
                 status_code=500,
-                headers=Headers.construct(),
-                body=Errors.construct(
-                    errors=[
-                        Error.construct(
-                            code="ABC",
-                            message="Error",
-                            detail=Detail.construct(name="python"),
-                        )
-                    ]
-                ),
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
             ),
         ],
     )
