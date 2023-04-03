@@ -1,7 +1,7 @@
 from datetime import datetime
 import enum
 import re
-from typing import ClassVar, Final, Optional
+from typing import Any, ClassVar, Final, Optional
 from pydantic import BaseModel, Field, validator
 from urllib.parse import urlparse, parse_qs
 
@@ -55,11 +55,25 @@ class Headers(BaseModel):
             qs: dict[str, list[str]] = parse_qs(urlparse(match.group("uri")).query)
             return Link(last=qs["last"][0], size=qs["n"][0])
 
+    @validator("*")
+    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if value is None:
+            return kwargs["field"].default
+
+        return value
+
 
 class Detail(BaseModel):
     name: Optional[str] = ""
     tag: Optional[str] = Field("", alias="Tag")
     digest: Optional[str] = ""
+
+    @validator("*")
+    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if value is None:
+            return kwargs["field"].default
+
+        return value
 
 
 class Error(BaseModel):
@@ -87,9 +101,23 @@ class Error(BaseModel):
     message: Optional[str] = ""
     detail: Optional[Detail] = None
 
+    @validator("*")
+    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if value is None:
+            return kwargs["field"].default
+
+        return value
+
 
 class Errors(BaseModel):
-    errors: list[Error] = Field([])
+    errors: Optional[list[Error]] = Field([])
+
+    @validator("*")
+    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if value is None:
+            return kwargs["field"].default
+
+        return value
 
 
 class RegistryResponse(BaseModel):
@@ -124,3 +152,8 @@ class RegistryResponse(BaseModel):
     status_code: Status
     headers: Headers
     body: Optional[BaseModel] = None
+
+    # @validator("*")
+    # def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+    #     if value is None:
+    #         return kwargs["field"].default
