@@ -24,4 +24,17 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
         
       - name: Run tests
-        run: pytest -vv --cov --cov-report=term-missing --tb=short
+        run: pytest -vv --cov --cov-report=term-missing --cov-report=xml:coverage.xml --tb=short
+
+      - name: Code Coverage Report
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage.xml
+          badge: true
+          fail_below_min: true
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '60 80'

@@ -3,6 +3,7 @@ import enum
 import re
 from typing import ClassVar, Final, Optional
 from pydantic import BaseModel, Field, validator
+from urllib.parse import urlparse, parse_qs
 
 __all__: list[str] = [
     "RegistryResponse",
@@ -12,7 +13,7 @@ __all__: list[str] = [
     "Detail",
 ]
 
-_LINK_PATTERN: Final[re.Pattern] = re.compile(r"<.+last=(?P<last>.+)&n=(?P<n>.+)>")
+_LINK_URI_PATTERN: Final[re.Pattern] = re.compile(r"<(?P<uri>.+)>")
 
 
 class Link(BaseModel):
@@ -49,9 +50,10 @@ class Headers(BaseModel):
 
     @validator("link", pre=True)
     def parse_link(cls, value: str | None) -> Link | None:
-        if value and (match := _LINK_PATTERN.search(value)):
+        if value and (match := _LINK_URI_PATTERN.search(value)):
             # <<uri>?n=<n from the request>&last=<last repository in response>>; rel="next"
-            return Link(last=match.group("last"), size=match.group("n"))
+            qs: dict[str, list[str]] = parse_qs(urlparse(match.group("uri")).query)
+            return Link(last=qs["last"][0], size=qs["n"][0])
 
 
 class Detail(BaseModel):

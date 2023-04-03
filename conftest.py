@@ -16,10 +16,6 @@ class MockedResponse:
         self.text: str = text
         self.content: bytes = text.encode("utf8")
 
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            raise httpx.HTTPStatusError("Error", request=None, response=None)
-
     def json(self) -> dict[str, Any]:
         return json.loads(self.text)
 

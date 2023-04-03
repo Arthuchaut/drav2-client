@@ -1,11 +1,12 @@
 import base64
+import enum
 from functools import cached_property
 import json
-from typing import ClassVar, Optional
+from typing import ClassVar, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
-from drav2_client.types import AnyTransport
+from drav2_client.types import AnyTransport, ManifestMediaType
 from drav2_client.models import *
 
 __all__: list[str] = [
@@ -89,12 +90,23 @@ class RegistryClient(_BaseClient):
         )
         return self._build_response(res, Tags)
 
-    def get_manifest(self, name: str, reference: str) -> RegistryResponse:
+    def get_manifest(
+        self,
+        name: str,
+        reference: str,
+        *,
+        media_type: Optional[ManifestMediaType] = ManifestMediaType.V2,
+    ) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
-        headers |= {"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
+        headers |= {"Accept": media_type}
         res: httpx.Response = self._client.get(url, headers=headers)
-        return self._build_response(res, Manifest)
+        model: type[BaseModel] = ManifestV2
+
+        if media_type is ManifestMediaType.V1:
+            model = ManifestV1
+
+        return self._build_response(res, model)
 
     def get_blob(self, name: str, digest: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")

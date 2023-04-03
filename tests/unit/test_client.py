@@ -8,6 +8,7 @@ from pytest_mock import MockerFixture
 from conftest import _FAKE_BASE_URL
 from drav2_client.client import *
 from drav2_client.models import *
+from drav2_client.types import ManifestMediaType
 
 
 class TestBaseClient:
@@ -22,6 +23,16 @@ class TestBaseClient:
                     request=None,
                 ),
                 Tags,
+                False,
+            ),
+            (
+                httpx.Response(
+                    200,
+                    headers={"Link": '</uri/path/?last=python&n=10>; rel="next"'},
+                    text=json.dumps({"repositories": ["python", "debian"]}),
+                    request=None,
+                ),
+                Catalog,
                 False,
             ),
             (
@@ -255,14 +266,14 @@ class TestClient:
             RegistryResponse(
                 status_code=200,
                 headers=Headers(),
-                body=Manifest(
-                    schema_version=2,
+                body=ManifestV2(
+                    schemaVersion=2,
                     config=Config(
                         media_type="application/vnd.docker.container.image.v1+json"
                     ),
                     layers=[
                         Layer(
-                            media_type="pplication/vnd.docker.image.rootfs.diff.tar.gzip",
+                            media_type="application/vnd.docker.image.rootfs.diff.tar.gzip",
                             size=55045608,
                             digest="sha256:3e440a7045683e27f8e2fa04000e0e078d8dfac0c971358ae0f8c65c13321c8e",
                         )
@@ -272,7 +283,12 @@ class TestClient:
             RegistryResponse(
                 status_code=200,
                 headers=Headers(),
-                body=Manifest(schema_version=2),
+                body=ManifestV1(schemaVersion=1, name="python", tag="latest"),
+            ),
+            RegistryResponse(
+                status_code=200,
+                headers=Headers(),
+                body=ManifestV2(),
             ),
             RegistryResponse(
                 status_code=401,
@@ -324,7 +340,18 @@ class TestClient:
             ),
         )
 
-        res: RegistryResponse = client.get_manifest(name="python", reference="latest")
+        if version := getattr(expected.body, "schema_version", None):
+            media_type: ManifestMediaType = (
+                ManifestMediaType.V1 if version == 1 else ManifestMediaType.V2
+            )
+            res: RegistryResponse = client.get_manifest(
+                name="python", reference="latest", media_type=media_type
+            )
+        else:
+            res: RegistryResponse = client.get_manifest(
+                name="python", reference="latest"
+            )
+
         assert res == expected
 
     @pytest.mark.parametrize(
