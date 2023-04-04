@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Any, Callable, ClassVar, Optional
+from typing import Any, ClassVar, Optional
 from pydantic import BaseModel, Field, validator
 from drav2_client.types import ManifestMediaType
 
@@ -131,7 +131,7 @@ class ManifestV1(BaseModel):
     name: Optional[str] = ""
     tag: Optional[str] = ""
     architecture: Optional[str] = ""
-    fs_layers: Optional[list[FsLayer]] = Field(None, alias="fsLayers")
+    fs_layers: Optional[list[FsLayer]] = Field([], alias="fsLayers")
     history: Optional[list[HistoryItem]] = Field([])
     signatures: Optional[list[Signature]] = Field([])
 

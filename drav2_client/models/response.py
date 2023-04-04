@@ -1,7 +1,7 @@
 from datetime import datetime
 import enum
 import re
-from typing import Any, ClassVar, Final, Optional
+from typing import Any, Final, Optional
 from pydantic import BaseModel, Field, validator
 from urllib.parse import urlparse, parse_qs
 
@@ -153,7 +153,9 @@ class RegistryResponse(BaseModel):
     headers: Headers
     body: Optional[BaseModel] = None
 
-    # @validator("*")
-    # def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-    #     if value is None:
-    #         return kwargs["field"].default
+    @validator("*")
+    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if value is None:
+            return kwargs["field"].default
+
+        return value

@@ -1,8 +1,8 @@
 import json
 import re
-from typing import Any, Callable, Final, Optional
+from typing import Any, Callable, Final, Iterable, Optional
 from urllib.parse import urljoin
-import httpx
+from pydantic import ValidationError
 import pytest
 from drav2_client.client import RegistryClient
 
@@ -33,7 +33,7 @@ def request_patch() -> Callable[[Any], Any]:
         dict_obj: Optional[dict[str, Any]] = {},
         bytes_obj: Optional[bytes] = b"",
         headers: Optional[dict[str, str]] = {},
-        status_code: Optional[int] = 200
+        status_code: Optional[int] = 200,
     ) -> Callable[[str, Any], MockedResponse]:
         def method(self, url: str, **kwargs: Any) -> MockedResponse | None:
             if re.search(urljoin(_FAKE_BASE_URL, route), url):
@@ -47,5 +47,58 @@ def request_patch() -> Callable[[Any], Any]:
                 )
 
         return method
+
+    return wrapper
+
+
+@pytest.fixture
+def extract_error_list() -> Callable[[Any], Any]:
+    def wrapper(error: ValidationError) -> list[str]:
+        fpaths: list[str] = []
+
+        for error in error.errors():
+            fpath: str = ""
+
+            for slice_ in error["loc"]:
+                if type(slice_) is int:
+                    fpath += f"[{slice_}]"
+                else:
+                    fpath += "." + slice_
+
+            fpaths.append(fpath)
+
+        return fpaths
+
+    return wrapper
+
+
+@pytest.fixture
+def assert_sequences_equals() -> Callable[[Any], Any]:
+    def wrapper(
+        model_errors_list: Iterable[str], expected_errors_list: Iterable[str]
+    ) -> None:
+        model_unmatched: list[str] = []
+        expected_unmatched: list[str] = []
+
+        for fpath1 in list(model_errors_list):
+            for fpath2 in list(expected_errors_list):
+                if fpath1 == fpath2:
+                    break
+            else:
+                model_unmatched.append(fpath1)  # pragma: no cover
+
+        for fpath1 in list(expected_errors_list):
+            for fpath2 in list(model_errors_list):
+                if fpath1 == fpath2:
+                    break
+            else:
+                expected_unmatched.append(fpath1)  # pragma: no cover
+
+        if model_unmatched or expected_unmatched:
+            raise AssertionError(
+                f"Unexpected validation errors from "
+                f"model_unmatched={model_unmatched}, "
+                f"expected_unmatched={expected_unmatched}"
+            ) from None  # pragma: no cover
 
     return wrapper
