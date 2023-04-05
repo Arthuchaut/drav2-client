@@ -1,6 +1,5 @@
 import json
 from typing import Any, Callable
-from unittest.mock import MagicMock
 import warnings
 import httpx
 from pydantic import BaseModel
@@ -43,7 +42,7 @@ class TestBaseClient:
                     content=b"Hello!",
                     request=None,
                 ),
-                Blob,
+                None,
                 True,
             ),
             (
@@ -93,10 +92,9 @@ class TestBaseClient:
         elif res.status_code >= 400:
             expected.body = Errors.parse_obj(res.json())
         elif model:
-            if from_content:
-                expected.body = model(content=res.content)
-            else:
-                expected.body = model.parse_obj(res.json())
+            expected.body = model.parse_obj(res.json())
+        elif from_content:
+            expected.body = res.content
 
         res: RegistryResponse = client._build_response(res, model, from_content)
         assert res == expected
@@ -365,12 +363,12 @@ class TestClient:
             RegistryResponse(
                 status_code=200,
                 headers=Headers(),
-                body=Blob(content=b"hello world!"),
+                body=b"hello world!",
             ),
             RegistryResponse(
                 status_code=200,
                 headers=Headers(),
-                body=Blob(content=b""),
+                body=b"",
             ),
             RegistryResponse(
                 status_code=401,
@@ -412,10 +410,10 @@ class TestClient:
         request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        if isinstance(expected.body, Blob):
+        if type(expected.body) is bytes:
             patch: Callable[[Any], Any] = request_patch(
                 r"\w+/blobs/\w+",
-                bytes_obj=expected.body.content,
+                bytes_obj=expected.body,
                 status_code=expected.status_code,
             )
         else:

@@ -62,9 +62,22 @@ class TestResponse:
             ),
             (
                 {
+                    "status_code": 200,
+                    "headers": {},
+                    "body": b"blob",
+                },
+                RegistryResponse.construct(
+                    status_code=RegistryResponse.Status.OK,
+                    headers=Headers.construct(),
+                    body=b"blob",
+                ),
+                None,
+            ),
+            (
+                {
                     "status_code": 600,
                     "headers": "hello",
-                    "body": "hello",
+                    "body": object(),
                 },
                 (
                     ".status_code",

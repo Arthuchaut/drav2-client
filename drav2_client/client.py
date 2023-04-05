@@ -47,10 +47,9 @@ class _BaseClient:
         elif res.status_code >= 400:
             result = Errors.parse_obj(res.json())
         elif model:
-            if from_content:
-                result = model(content=res.content)
-            else:
-                result = model.parse_obj(res.json())
+            result = model.parse_obj(res.json())
+        elif from_content:
+            result = res.content
 
         return RegistryResponse(
             status_code=res.status_code,
@@ -109,7 +108,7 @@ class RegistryClient(_BaseClient):
     def get_blob(self, name: str, digest: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
-        return self._build_response(res, Blob, from_content=True)
+        return self._build_response(res, from_content=True)
 
     def delete_manifest(self, name: str, reference: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")

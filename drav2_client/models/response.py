@@ -92,7 +92,7 @@ class RegistryResponse(BaseModel):
 
     status_code: Status
     headers: Headers
-    body: Optional[BaseModel] = None
+    body: Optional[BaseModel | bytes] = None
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
