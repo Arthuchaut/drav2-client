@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Any, ClassVar, Optional
 from pydantic import BaseModel, Field, validator
-from drav2_client.types import ManifestMediaType
+from drav2_client.types import MediaType
 
 __all__: list[str] = [
     "ManifestV1",
@@ -17,7 +17,7 @@ __all__: list[str] = [
 
 
 class Config(BaseModel):
-    media_type: Optional[str] = Field("", alias="mediaType")
+    media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
     digest: Optional[str] = ""
 
@@ -30,7 +30,7 @@ class Config(BaseModel):
 
 
 class Layer(BaseModel):
-    media_type: Optional[str] = Field("", alias="mediaType")
+    media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
     digest: Optional[str] = ""
 
@@ -44,7 +44,7 @@ class Layer(BaseModel):
 
 class ManifestV2(BaseModel):
     schema_version: Optional[int] = Field(None, alias="schemaVersion")
-    media_type: Optional[ManifestMediaType] = Field(None, alias="mediaType")
+    media_type: Optional[MediaType] = Field(None, alias="mediaType")
     config: Optional[Config] = None
     layers: Optional[list[Layer]] = Field([])
 

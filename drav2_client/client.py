@@ -6,7 +6,7 @@ from typing import ClassVar, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
-from drav2_client.types import AnyTransport, ManifestMediaType
+from drav2_client.types import AnyTransport, MediaType
 from drav2_client.models import *
 
 __all__: list[str] = [
@@ -95,7 +95,7 @@ class RegistryClient(_BaseClient):
         name: str,
         reference: str,
         *,
-        media_type: Optional[ManifestMediaType] = ManifestMediaType.V2,
+        media_type: MediaType = MediaType.MANIFEST_V2,
     ) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
@@ -103,7 +103,7 @@ class RegistryClient(_BaseClient):
         res: httpx.Response = self._client.get(url, headers=headers)
         model: type[BaseModel] = ManifestV2
 
-        if media_type is ManifestMediaType.V1:
+        if media_type is MediaType.SIGNED_MANIFEST_V1:
             model = ManifestV1
 
         return self._build_response(res, model)

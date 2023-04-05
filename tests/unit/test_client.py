@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 from conftest import _FAKE_BASE_URL
 from drav2_client.client import *
 from drav2_client.models import *
-from drav2_client.types import ManifestMediaType
+from drav2_client.types import MediaType
 
 
 class TestBaseClient:
@@ -341,8 +341,8 @@ class TestClient:
         )
 
         if version := getattr(expected.body, "schema_version", None):
-            media_type: ManifestMediaType = (
-                ManifestMediaType.V1 if version == 1 else ManifestMediaType.V2
+            media_type: MediaType = (
+                MediaType.SIGNED_MANIFEST_V1 if version == 1 else MediaType.MANIFEST_V2
             )
             res: RegistryResponse = client.get_manifest(
                 name="python", reference="latest", media_type=media_type

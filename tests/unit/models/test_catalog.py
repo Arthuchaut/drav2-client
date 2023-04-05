@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
 from drav2_client.models.catalog import Catalog
@@ -35,7 +35,7 @@ class TestCatalog:
             ),
             (
                 {"repositories": "hello"},
-                ("repositories",),
+                (".repositories",),
                 ValidationError,
             ),
         ],
@@ -45,13 +45,15 @@ class TestCatalog:
         data: dict[str, Any],
         expected: Catalog | tuple[str, ...],
         throwable: type[ValidationError] | None,
+        extract_error_list: Callable[[Any], Any],
+        assert_sequences_equals: Callable[[Any], Any],
     ) -> None:
         if throwable:
             try:
                 Catalog.parse_obj(data)
                 raise AssertionError(f"Did not raise {throwable}")  # pragma: no cover
             except throwable as e:
-                error_fields: list[str] = [wrapper._loc for wrapper in e.args[0]]
-                assert sorted(error_fields) == sorted(expected)
+                error_list: list[str] = extract_error_list(e)
+                assert_sequences_equals(error_list, expected)
         else:
             assert Catalog.parse_obj(data) == expected

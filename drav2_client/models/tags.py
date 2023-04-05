@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field, validator
 
 __all__: list[str] = [

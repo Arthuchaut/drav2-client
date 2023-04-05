@@ -25,13 +25,13 @@ class TestManifestV2:
                     "schemaVersion": 2,
                     "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
                     "config": {
-                        "mediaType": "application/vnd.docker.image.v1+json",
+                        "mediaType": "application/vnd.docker.container.image.v1+json",
                         "size": 12345,
                         "digest": "sha256:dh3n8lkf65dd078d",
                     },
                     "layers": [
                         {
-                            "mediaType": "application/vnd.docker.image.v1+json",
+                            "mediaType": "application/vnd.docker.container.image.v1+json",
                             "size": 12345,
                             "digest": "sha256:d8kd04di3n12u10",
                         },
@@ -41,13 +41,13 @@ class TestManifestV2:
                     schema_version=2,
                     media_type="application/vnd.docker.distribution.manifest.v2+json",
                     config=Config.construct(
-                        media_type="application/vnd.docker.image.v1+json",
+                        media_type="application/vnd.docker.container.image.v1+json",
                         size=12345,
                         digest="sha256:dh3n8lkf65dd078d",
                     ),
                     layers=[
                         Layer.construct(
-                            media_type="application/vnd.docker.image.v1+json",
+                            media_type="application/vnd.docker.container.image.v1+json",
                             size=12345,
                             digest="sha256:d8kd04di3n12u10",
                         )
@@ -86,13 +86,13 @@ class TestManifestV2:
                     schema_version=None,
                     media_type=None,
                     config=Config.construct(
-                        media_type="",
+                        media_type=None,
                         size=None,
                         digest="",
                     ),
                     layers=[
                         Layer.construct(
-                            media_type="",
+                            media_type=None,
                             size=None,
                             digest="",
                         )
@@ -113,13 +113,13 @@ class TestManifestV2:
                     schema_version=None,
                     media_type=None,
                     config=Config.construct(
-                        media_type="",
+                        media_type=None,
                         size=None,
                         digest="",
                     ),
                     layers=[
                         Layer.construct(
-                            media_type="",
+                            media_type=None,
                             size=None,
                             digest="",
                         )
