@@ -16,5 +16,5 @@ class MediaType(str, enum.Enum):
     MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
     CONTAINER_CONFIG = "application/vnd.docker.container.image.v1+json"
     LAYER = "application/vnd.docker.image.rootfs.diff.tar.gzip"
-    FOREIGN_LAYER = "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"  # “Layer”, as a gzipped tar that should never be pushed
+    FOREIGN_LAYER = "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"  # Should never be pushed
     PLUGIN_CONFIG = "application/vnd.docker.plugin.v1+json"

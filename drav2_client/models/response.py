@@ -8,9 +8,7 @@ from urllib.parse import urlparse, parse_qs
 __all__: list[str] = [
     "RegistryResponse",
     "Headers",
-    "Errors",
-    "Error",
-    "Detail",
+    "Link",
 ]
 
 _LINK_URI_PATTERN: Final[re.Pattern] = re.compile(r"<(?P<uri>.+)>")
@@ -38,7 +36,7 @@ class Headers(BaseModel):
     date: Optional[datetime] = None
     range: Optional[int] = None
     location: Optional[str] = ""
-    content_length: Optional[int] = Field(0, alias="content-length")
+    content_length: Optional[int] = Field(None, alias="content-length")
     content_range: Optional[int] = Field(None, alias="content-range")
     link: Optional[Link] = None
 
@@ -54,63 +52,6 @@ class Headers(BaseModel):
             # <<uri>?n=<n from the request>&last=<last repository in response>>; rel="next"
             qs: dict[str, list[str]] = parse_qs(urlparse(match.group("uri")).query)
             return Link(last=qs["last"][0], size=qs["n"][0])
-
-    @validator("*")
-    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-        if value is None:
-            return kwargs["field"].default
-
-        return value
-
-
-class Detail(BaseModel):
-    name: Optional[str] = ""
-    tag: Optional[str] = Field("", alias="Tag")
-    digest: Optional[str] = ""
-
-    @validator("*")
-    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-        if value is None:
-            return kwargs["field"].default
-
-        return value
-
-
-class Error(BaseModel):
-    class Code(str, enum.Enum):
-        BLOB_UNKNOWN = "BLOB_UNKNOWN"
-        BLOB_UPLOAD_INVALID = "BLOB_UPLOAD_INVALID"
-        BLOB_UPLOAD_UNKNOWN = "BLOB_UPLOAD_UNKNOWN"
-        DIGEST_INVALID = "DIGEST_INVALID"
-        MANIFEST_BLOB_UNKNOWN = "MANIFEST_BLOB_UNKNOWN"
-        MANIFEST_INVALID = "MANIFEST_INVALID"
-        MANIFEST_UNKNOWN = "MANIFEST_UNKNOWN"
-        MANIFEST_UNVERIFIED = "MANIFEST_UNVERIFIED"
-        NAME_INVALID = "NAME_INVALID"
-        NAME_UNKNOWN = "NAME_UNKNOWN"
-        PAGINATION_NUMBER_INVALID = "PAGINATION_NUMBER_INVALID"
-        RANGE_INVALID = "RANGE_INVALID"
-        SIZE_INVALID = "SIZE_INVALID"
-        TAG_INVALID = "TAG_INVALID"
-        UNAUTHORIZED = "UNAUTHORIZED"
-        DENIED = "DENIED"
-        UNSUPPORTED = "UNSUPPORTED"
-        INTERNAL_ERROR = "INTERNAL_ERROR"
-
-    code: Optional[Code] = None
-    message: Optional[str] = ""
-    detail: Optional[Detail] = None
-
-    @validator("*")
-    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-        if value is None:
-            return kwargs["field"].default
-
-        return value
-
-
-class Errors(BaseModel):
-    errors: Optional[list[Error]] = Field([])
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:

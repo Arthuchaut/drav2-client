@@ -275,7 +275,7 @@ class TestClient:
                         Layer(
                             media_type="application/vnd.docker.image.rootfs.diff.tar.gzip",
                             size=55045608,
-                            digest="sha256:3e440a7045683e27f8e2fa04000e0e078d8dfac0c971358ae0f8c65c13321c8e",
+                            digest="sha256:3e440a7045683e27f8e2fa04000e0e0",
                         )
                     ],
                 ),
