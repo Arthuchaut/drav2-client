@@ -1,6 +1,7 @@
 import json
 from typing import Any, Callable
 from unittest.mock import MagicMock
+import warnings
 import httpx
 from pydantic import BaseModel
 import pytest
@@ -330,29 +331,33 @@ class TestClient:
         request_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(
-            httpx.Client,
-            "get",
-            request_patch(
-                r"\w+/manifests/\w+",
-                dict_obj=expected.body.dict(by_alias=True),
-                status_code=expected.status_code,
-            ),
-        )
-
-        if version := getattr(expected.body, "schema_version", None):
-            media_type: MediaType = (
-                MediaType.SIGNED_MANIFEST_V1 if version == 1 else MediaType.MANIFEST_V2
-            )
-            res: RegistryResponse = client.get_manifest(
-                name="python", reference="latest", media_type=media_type
-            )
-        else:
-            res: RegistryResponse = client.get_manifest(
-                name="python", reference="latest"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            mocker.patch.object(
+                httpx.Client,
+                "get",
+                request_patch(
+                    r"\w+/manifests/\w+",
+                    dict_obj=expected.body.dict(by_alias=True),
+                    status_code=expected.status_code,
+                ),
             )
 
-        assert res == expected
+            if version := getattr(expected.body, "schema_version", None):
+                media_type: MediaType = (
+                    MediaType.SIGNED_MANIFEST_V1
+                    if version == 1
+                    else MediaType.MANIFEST_V2
+                )
+                res: RegistryResponse = client.get_manifest(
+                    name="python", reference="latest", media_type=media_type
+                )
+            else:
+                res: RegistryResponse = client.get_manifest(
+                    name="python", reference="latest"
+                )
+
+            assert res == expected
 
     @pytest.mark.parametrize(
         "expected",

@@ -1,4 +1,5 @@
 from typing import Any, Callable
+import warnings
 from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
@@ -610,12 +611,15 @@ class TestManifestV1:
         extract_error_list: Callable[[Any], Any],
         assert_sequences_equals: Callable[[Any], Any],
     ) -> None:
-        if throwable:
-            try:
-                ManifestV1.parse_obj(data)
-                raise AssertionError(f"Did not raise {throwable}")  # pragma: no cover
-            except throwable as e:
-                error_list: list[str] = extract_error_list(e)
-                assert_sequences_equals(error_list, expected)
-        else:
-            assert ManifestV1.parse_obj(data) == expected
+        with pytest.deprecated_call():
+            if throwable:
+                try:
+                    ManifestV1.parse_obj(data)
+                    raise AssertionError(
+                        f"Did not raise {throwable}"
+                    )  # pragma: no cover
+                except throwable as e:
+                    error_list: list[str] = extract_error_list(e)
+                    assert_sequences_equals(error_list, expected)
+            else:
+                assert ManifestV1.parse_obj(data) == expected

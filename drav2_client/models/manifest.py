@@ -1,5 +1,6 @@
 from functools import cached_property
 from typing import Any, ClassVar, Optional
+import warnings
 from pydantic import BaseModel, Field, validator
 from drav2_client.types import MediaType
 
@@ -127,6 +128,15 @@ class Signature(BaseModel):
 
 
 class ManifestV1(BaseModel):
+    def __init__(__pydantic_self__, **data: Any) -> None:
+        warnings.warn(
+            "Manifest schema 1 should not be used for purposes "
+            "other than backward compatibility. "
+            "See https://docs.docker.com/registry/spec/manifest-v2-1/ to learn more.",
+            DeprecationWarning,
+        )
+        super().__init__(**data)
+
     schema_version: Optional[int] = Field(None, alias="schemaVersion")
     name: Optional[str] = ""
     tag: Optional[str] = ""
