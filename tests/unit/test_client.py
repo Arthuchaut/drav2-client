@@ -274,7 +274,7 @@ class TestClient:
                         Layer(
                             media_type="application/vnd.docker.image.rootfs.diff.tar.gzip",
                             size=55045608,
-                            digest="sha256:3e440a7045683e27f8e2fa04000e0e0",
+                            digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                         )
                     ],
                 ),
@@ -424,7 +424,10 @@ class TestClient:
             )
 
         mocker.patch.object(httpx.Client, "get", patch)
-        res: RegistryResponse = client.get_blob(name="any", digest="any")
+        res: RegistryResponse = client.get_blob(
+            name="any",
+            digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+        )
         assert res == expected
 
     @pytest.mark.parametrize(

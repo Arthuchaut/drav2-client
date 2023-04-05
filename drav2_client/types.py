@@ -1,9 +1,11 @@
 import enum
-from typing import Any
+import re
+from typing import Any, ClassVar, NewType
 
 __all__: list[str] = [
     "AnyTransport",
     "MediaType",
+    "SHA256",
 ]
 
 AnyTransport: Any = Any
@@ -18,3 +20,14 @@ class MediaType(str, enum.Enum):
     LAYER = "application/vnd.docker.image.rootfs.diff.tar.gzip"
     FOREIGN_LAYER = "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"  # Should never be pushed
     PLUGIN_CONFIG = "application/vnd.docker.plugin.v1+json"
+
+
+class SHA256(str):
+    _SHA256_PATTERN: ClassVar[re.Pattern] = re.compile(r"sha256:[a-f\d]{64}")
+
+    def raise_for_validation(self) -> None:
+        if not self._SHA256_PATTERN.match(self.lower()):
+            raise ValueError(
+                f"The SHA256 hash should follow the "
+                f"pattern {self._SHA256_PATTERN.pattern}"
+            )

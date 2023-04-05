@@ -5,6 +5,8 @@ from typing import Any, Final, Optional
 from pydantic import BaseModel, Field, validator
 from urllib.parse import urlparse, parse_qs
 
+from drav2_client.types import SHA256
+
 __all__: list[str] = [
     "RegistryResponse",
     "Headers",
@@ -30,7 +32,7 @@ class Headers(BaseModel):
         alias="x-content-type-options",
     )
     www_authenticate: Optional[str] = Field("", alias="www-authenticate")
-    docker_content_digest: Optional[str] = Field("", alias="docker-content-digest")
+    docker_content_digest: Optional[SHA256] = Field(None, alias="docker-content-digest")
     docker_upload_uuid: Optional[str] = Field("", alias="docker-upload-uuid")
     etag: Optional[str] = ""
     date: Optional[datetime] = None
@@ -52,6 +54,14 @@ class Headers(BaseModel):
             # <<uri>?n=<n from the request>&last=<last repository in response>>; rel="next"
             qs: dict[str, list[str]] = parse_qs(urlparse(match.group("uri")).query)
             return Link(last=qs["last"][0], size=qs["n"][0])
+
+    @validator("docker_content_digest", pre=True)
+    def validate_digest(cls, value: str | None) -> SHA256:
+        if value is not None:
+            value = SHA256(value)
+            value.raise_for_validation()
+
+        return value
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:

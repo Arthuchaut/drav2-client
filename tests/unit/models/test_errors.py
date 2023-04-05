@@ -18,7 +18,7 @@ class TestErrors:
                             "detail": {
                                 "name": "python",
                                 "Tag": "latest",
-                                "digest": "sha256:3e440a7045683e27f8e2fa0400",
+                                "digest": "sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                             },
                         }
                     ]
@@ -31,7 +31,7 @@ class TestErrors:
                             detail=Detail.construct(
                                 name="python",
                                 tag="latest",
-                                digest="sha256:3e440a7045683e27f8e2fa0400",
+                                digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                             ),
                         )
                     ]
@@ -79,7 +79,7 @@ class TestErrors:
                             detail=Detail.construct(
                                 name="",
                                 tag="",
-                                digest="",
+                                digest=None,
                             ),
                         )
                     ]
@@ -110,7 +110,7 @@ class TestErrors:
                         {
                             "name": "python",
                             "Tag": "latest",
-                            "digest": "sha256:3e440a7045683e27f8e2fa0400",
+                            "digest": "sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                         },
                     ]
                 },

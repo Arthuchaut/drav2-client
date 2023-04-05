@@ -4,7 +4,7 @@ from typing import ClassVar, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
-from drav2_client.types import AnyTransport, MediaType
+from drav2_client.types import SHA256, AnyTransport, MediaType
 from drav2_client.models import *
 
 __all__: list[str] = [
@@ -105,7 +105,9 @@ class RegistryClient(_BaseClient):
 
         return self._build_response(res, model)
 
-    def get_blob(self, name: str, digest: str) -> RegistryResponse:
+    def get_blob(self, name: str, digest: SHA256) -> RegistryResponse:
+        digest = SHA256(digest)
+        digest.raise_for_validation()
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
         return self._build_response(res, from_content=True)

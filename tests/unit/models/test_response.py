@@ -15,6 +15,7 @@ class TestResponse:
                     "status_code": 200,
                     "headers": {
                         "content-type": "application/json",
+                        "docker-content-digest": "sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                         "link": '</path/to/resource/?last=python&n=10> rel="link"',
                         "date": "Sat, 01 Apr 2023 23:18:26 GMT",
                     },
@@ -24,6 +25,7 @@ class TestResponse:
                     status_code=RegistryResponse.Status.OK,
                     headers=Headers.construct(
                         content_type="application/json",
+                        docker_content_digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                         link=Link(last="python", size=10),
                         date=datetime.datetime(2023, 4, 1, 23, 18, 26),
                     ),
@@ -82,6 +84,21 @@ class TestResponse:
                 (
                     ".status_code",
                     ".headers",
+                    ".body",
+                ),
+                ValidationError,
+            ),
+            (
+                {
+                    "status_code": 600,
+                    "headers": {
+                        "docker-content-digest": "sha256:szuzs64d8hd54",
+                    },
+                    "body": object(),
+                },
+                (
+                    ".status_code",
+                    ".headers.docker-content-digest",
                     ".body",
                 ),
                 ValidationError,

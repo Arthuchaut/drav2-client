@@ -2,7 +2,7 @@ from functools import cached_property
 from typing import Any, ClassVar, Optional
 import warnings
 from pydantic import BaseModel, Field, validator
-from drav2_client.types import MediaType
+from drav2_client.types import SHA256, MediaType
 
 __all__: list[str] = [
     "ManifestV1",
@@ -20,7 +20,15 @@ __all__: list[str] = [
 class Config(BaseModel):
     media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
-    digest: Optional[str] = ""
+    digest: Optional[SHA256] = None
+
+    @validator("digest", pre=True)
+    def validate_digest(cls, value: str | None) -> SHA256:
+        if value is not None:
+            value = SHA256(value)
+            value.raise_for_validation()
+
+        return value
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
@@ -33,7 +41,15 @@ class Config(BaseModel):
 class Layer(BaseModel):
     media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
-    digest: Optional[str] = ""
+    digest: Optional[SHA256] = None
+
+    @validator("digest", pre=True)
+    def validate_digest(cls, value: str | None) -> SHA256:
+        if value is not None:
+            value = SHA256(value)
+            value.raise_for_validation()
+
+        return value
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
