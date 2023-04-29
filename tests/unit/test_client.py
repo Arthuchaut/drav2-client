@@ -482,6 +482,7 @@ class TestClient:
         mocker.patch.object(
             RegistryClient, "_bytes_iterator", lambda *a, **k: fake_iter_bytes
         )
+
         if isinstance(expected.body, Blob):
             patch: Callable[[Any], Any] = send_patch(
                 r"\w+/blobs/\w+",
@@ -570,6 +571,85 @@ class TestClient:
         mocker.patch.object(httpx.Client, "delete", patch)
         res: RegistryResponse = client.delete_manifest(
             name="python", reference="latest"
+        )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=201,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_put_manifest(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.CREATED:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/manifests/\w+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/manifests/\w+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "put", patch)
+        res: RegistryResponse = client.put_manifest(
+            name="python", reference="latest", manifest=ManifestV2.construct()
         )
         assert res == expected
 

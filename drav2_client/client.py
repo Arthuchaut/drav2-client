@@ -146,6 +146,16 @@ class RegistryClient(_BaseClient):
             res, model=Blob, from_stream=stream, from_content=not stream
         )
 
+    def put_manifest(
+        self, name: str, reference: str, manifest: ManifestV1 | ManifestV2
+    ) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
+        headers: dict[str, str] = self._auth_header
+        res: httpx.Response = self._client.put(
+            url, headers=headers, data=manifest.json(by_alias=True)
+        )
+        return self._build_response(res)
+
     def delete_manifest(self, name: str, reference: str) -> RegistryResponse:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
