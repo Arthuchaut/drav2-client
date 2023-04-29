@@ -2,7 +2,7 @@ import datetime
 from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
-from drav2_client.models.errors import Detail, Error, Errors
+from drav2_client.models.errors import Error, Errors
 
 
 class TestErrors:
@@ -28,9 +28,9 @@ class TestErrors:
                         Error.construct(
                             code=Error.Code.MANIFEST_UNKNOWN,
                             message="Unknown manifest :(",
-                            detail=Detail.construct(
+                            detail=dict(
                                 name="python",
-                                tag="latest",
+                                Tag="latest",
                                 digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                             ),
                         )
@@ -76,9 +76,9 @@ class TestErrors:
                         Error.construct(
                             code=None,
                             message="",
-                            detail=Detail.construct(
-                                name="",
-                                tag="",
+                            detail=dict(
+                                name=None,
+                                tag=None,
                                 digest=None,
                             ),
                         )
@@ -119,10 +119,6 @@ class TestErrors:
                     ".errors[1]",
                     ".errors[2].code",
                     ".errors[2].message",
-                    ".errors[2].detail.name",
-                    ".errors[2].detail.Tag",
-                    ".errors[2].detail.digest",
-                    ".errors[2].detail.digest",
                 ),
                 ValidationError,
             ),

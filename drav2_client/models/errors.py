@@ -8,29 +8,7 @@ from drav2_client.types import SHA256
 __all__: list[str] = [
     "Errors",
     "Error",
-    "Detail",
 ]
-
-
-class Detail(BaseModel):
-    name: Optional[str] = ""
-    tag: Optional[str] = Field("", alias="Tag")
-    digest: Optional[SHA256] = None
-
-    @validator("digest", pre=True)
-    def validate_digest(cls, value: str | None) -> SHA256:
-        if value is not None:
-            value = SHA256(value)
-            value.raise_for_validation()
-
-        return value
-
-    @validator("*")
-    def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-        if value is None:
-            return kwargs["field"].default
-
-        return value
 
 
 class Error(BaseModel):
@@ -56,7 +34,7 @@ class Error(BaseModel):
 
     code: Optional[Code] = None
     message: Optional[str] = ""
-    detail: Optional[Detail] = None
+    detail: Any = None
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:

@@ -1,10 +1,9 @@
 from datetime import datetime
 import enum
 import re
-from typing import Any, Final, Optional
+from typing import Any, Final, Iterable, Optional
 from pydantic import BaseModel, Field, validator
 from urllib.parse import urlparse, parse_qs
-
 from drav2_client.types import SHA256
 
 __all__: list[str] = [
@@ -40,6 +39,7 @@ class Headers(BaseModel):
     location: Optional[str] = ""
     content_length: Optional[int] = Field(None, alias="content-length")
     content_range: Optional[int] = Field(None, alias="content-range")
+    accept_ranges: Optional[str] = Field("", alias="accept-ranges")
     link: Optional[Link] = None
 
     @validator("date", pre=True)
@@ -102,7 +102,7 @@ class RegistryResponse(BaseModel):
 
     status_code: Status
     headers: Headers
-    body: Optional[BaseModel | bytes] = None
+    body: Optional[BaseModel] = None
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:

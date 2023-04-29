@@ -1,5 +1,6 @@
 import json
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
+from unittest.mock import ANY
 import warnings
 import httpx
 from pydantic import BaseModel
@@ -9,11 +10,12 @@ from conftest import _FAKE_BASE_URL
 from drav2_client.client import *
 from drav2_client.models import *
 from drav2_client.types import MediaType
+from conftest import fake_iter_bytes, MockedResponse
 
 
 class TestBaseClient:
     @pytest.mark.parametrize(
-        "res, model, from_content",
+        "res, model, from_stream, from_content",
         [
             (
                 httpx.Response(
@@ -23,6 +25,7 @@ class TestBaseClient:
                     request=None,
                 ),
                 Tags,
+                False,
                 False,
             ),
             (
@@ -34,6 +37,7 @@ class TestBaseClient:
                 ),
                 Catalog,
                 False,
+                False,
             ),
             (
                 httpx.Response(
@@ -42,8 +46,20 @@ class TestBaseClient:
                     content=b"Hello!",
                     request=None,
                 ),
-                None,
+                Blob,
+                False,
                 True,
+            ),
+            (
+                httpx.Response(
+                    200,
+                    headers={"date": "Sat, 01 Apr 2023 23:18:26 GMT"},
+                    content=b"Hello!",
+                    request=None,
+                ),
+                Blob,
+                True,
+                False,
             ),
             (
                 httpx.Response(
@@ -53,6 +69,7 @@ class TestBaseClient:
                     request=None,
                 ),
                 None,
+                False,
                 False,
             ),
             (
@@ -64,6 +81,7 @@ class TestBaseClient:
                 ),
                 None,
                 False,
+                False,
             ),
             (
                 httpx.Response(
@@ -73,6 +91,7 @@ class TestBaseClient:
                 ),
                 None,
                 False,
+                False,
             ),
         ],
     )
@@ -80,9 +99,12 @@ class TestBaseClient:
         self,
         res: httpx.Response,
         model: type[BaseModel] | None,
+        from_stream: bool,
         from_content: bool,
         client: RegistryClient,
+        mocker: MockerFixture,
     ) -> None:
+        mocker.patch.object(client, "_bytes_iterator")
         expected: RegistryResponse = RegistryResponse(
             status_code=res.status_code, headers=Headers.parse_obj(res.headers)
         )
@@ -92,11 +114,18 @@ class TestBaseClient:
         elif res.status_code >= 400:
             expected.body = Errors.parse_obj(res.json())
         elif model:
-            expected.body = model.parse_obj(res.json())
-        elif from_content:
-            expected.body = res.content
+            if from_stream:
+                expected.body = model.parse_obj(
+                    dict(iter_bytes=client._bytes_iterator(res))
+                )
+            elif from_content:
+                expected.body = model.parse_obj(dict(content=res.content))
+            else:
+                expected.body = model.parse_obj(res.json())
 
-        res: RegistryResponse = client._build_response(res, model, from_content)
+        res: RegistryResponse = client._build_response(
+            res, model=model, from_stream=from_stream, from_content=from_content
+        )
         assert res == expected
 
     @pytest.mark.parametrize(
@@ -148,7 +177,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -161,7 +190,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -214,7 +243,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -227,7 +256,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -297,7 +326,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -310,7 +339,7 @@ class TestClient:
                         Error(
                             code="INTERNAL_ERROR",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -358,75 +387,123 @@ class TestClient:
             assert res == expected
 
     @pytest.mark.parametrize(
-        "expected",
+        "stream, expected",
         [
-            RegistryResponse(
-                status_code=200,
-                headers=Headers(),
-                body=b"hello world!",
-            ),
-            RegistryResponse(
-                status_code=200,
-                headers=Headers(),
-                body=b"",
-            ),
-            RegistryResponse(
-                status_code=401,
-                headers=Headers(),
-                body=Errors(
-                    errors=[
-                        Error(
-                            code="INTERNAL_ERROR",
-                            message="Error",
-                            detail=Detail(name="python"),
-                        )
-                    ]
+            (
+                False,
+                RegistryResponse(
+                    status_code=200,
+                    headers=Headers(),
+                    body=Blob(content=b"hello world!"),
                 ),
             ),
-            RegistryResponse(
-                status_code=404,
-                headers=Headers(),
-                body=Errors(
-                    errors=[
-                        Error(
-                            code="INTERNAL_ERROR",
-                            message="Error",
-                            detail=Detail(name="python"),
-                        )
-                    ]
+            (
+                False,
+                RegistryResponse(
+                    status_code=200,
+                    headers=Headers(),
+                    body=Blob(content=b""),
                 ),
             ),
-            RegistryResponse(
-                status_code=500,
-                headers=Headers(),
-                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            (
+                True,
+                RegistryResponse(
+                    status_code=200,
+                    headers=Headers(),
+                    body=Blob(content=b"hello world!"),
+                ),
+            ),
+            (
+                False,
+                RegistryResponse(
+                    status_code=401,
+                    headers=Headers(),
+                    body=Errors(
+                        errors=[
+                            Error(
+                                code="INTERNAL_ERROR",
+                                message="Error",
+                                detail=dict(name="python"),
+                            )
+                        ]
+                    ),
+                ),
+            ),
+            (
+                True,
+                RegistryResponse(
+                    status_code=401,
+                    headers=Headers(),
+                    body=Errors(
+                        errors=[
+                            Error(
+                                code="INTERNAL_ERROR",
+                                message="Error",
+                                detail=dict(name="python"),
+                            )
+                        ]
+                    ),
+                ),
+            ),
+            (
+                False,
+                RegistryResponse(
+                    status_code=404,
+                    headers=Headers(),
+                    body=Errors(
+                        errors=[
+                            Error(
+                                code="INTERNAL_ERROR",
+                                message="Error",
+                                detail=dict(name="python"),
+                            )
+                        ]
+                    ),
+                ),
+            ),
+            (
+                False,
+                RegistryResponse(
+                    status_code=500,
+                    headers=Headers(),
+                    body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+                ),
             ),
         ],
     )
     def test_get_blob(
         self,
+        stream: bool,
         expected: RegistryResponse,
         client: RegistryClient,
-        request_patch: Callable[[Any], Any],
+        send_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        if type(expected.body) is bytes:
-            patch: Callable[[Any], Any] = request_patch(
+        mocker.patch.object(
+            RegistryClient, "_bytes_iterator", lambda *a, **k: fake_iter_bytes
+        )
+        if isinstance(expected.body, Blob):
+            patch: Callable[[Any], Any] = send_patch(
                 r"\w+/blobs/\w+",
-                bytes_obj=expected.body,
+                bytes_obj=expected.body.content,
                 status_code=expected.status_code,
             )
         else:
-            patch: Callable[[Any], Any] = request_patch(
+            patch: Callable[[Any], Any] = send_patch(
                 r"\w+/blobs/\w+",
                 dict_obj=expected.body.dict(),
                 status_code=expected.status_code,
             )
 
-        mocker.patch.object(httpx.Client, "get", patch)
+        if stream and expected.status_code is RegistryResponse.Status.OK:
+            expected.body.content = None
+            expected.body.iter_bytes = fake_iter_bytes
+
+        mocker.patch.object(httpx.Client, "send", patch)
         res: RegistryResponse = client.get_blob(
             name="any",
             digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+            stream=stream,
         )
         assert res == expected
 
@@ -446,7 +523,7 @@ class TestClient:
                         Error(
                             code="NAME_INVALID",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -459,7 +536,7 @@ class TestClient:
                         Error(
                             code="UNAUTHORIZED",
                             message="Error",
-                            detail=Detail(name="python"),
+                            detail=dict(name="python"),
                         )
                     ]
                 ),
@@ -494,4 +571,49 @@ class TestClient:
         res: RegistryResponse = client.delete_manifest(
             name="python", reference="latest"
         )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "name, digest, throwable",
+        [
+            (
+                "any",
+                "sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+                None,
+            ),
+            (
+                "any",
+                "wrong_digest",
+                ValueError,
+            ),
+        ],
+    )
+    def test_delete_blob(
+        self,
+        name: str,
+        digest: str,
+        throwable: type[ValueError] | None,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        patch: Callable[[Any], Any] = request_patch(r"\w+/blobs/\w+", status_code=200)
+        mocker.patch.object(httpx.Client, "delete", patch)
+
+        if throwable:
+            with pytest.raises(throwable):
+                client.delete_blob(name, digest)
+        else:
+            res: RegistryResponse = client.delete_blob(name, digest)
+            assert res.status_code is RegistryResponse.Status.OK
+
+    def test__bytes_iterator(self, client: RegistryClient) -> None:
+        expected: bytes = b"my content"
+        fake_response: MockedResponse = MockedResponse(
+            status_code=200, headers={}, text=expected.decode("utf8")
+        )
+        wrapper: Callable[[int], Iterator[bytes]] = client._bytes_iterator(
+            fake_response
+        )
+        res: bytes = b"".join([chunk for chunk in wrapper(1024)])
         assert res == expected
