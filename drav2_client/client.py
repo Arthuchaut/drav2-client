@@ -168,3 +168,24 @@ class RegistryClient(_BaseClient):
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.delete(url, headers=self._auth_header)
         return self._build_response(res)
+
+    def post_blob(
+        self, name: str, data: bytes, *, digest: Optional[SHA256] = None
+    ) -> RegistryResponse:
+        params: dict[str, str] = {}
+
+        if digest is not None:
+            digest = SHA256(digest)
+            digest.raise_for_validation()
+            params["digest"] = digest
+
+        url: str = urljoin(self.base_url, f"{name}/blobs/uploads/")
+        headers: dict[str, Any] = self._auth_header
+        headers |= {
+            "Content-Length": len(data),
+            "Content-Type": "application/octect-stream",
+        }
+        res: httpx.Response = self._client.post(
+            url, headers=headers, params=params, data=data
+        )
+        return self._build_response(res)

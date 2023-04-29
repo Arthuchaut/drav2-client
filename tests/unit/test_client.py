@@ -687,6 +687,83 @@ class TestClient:
             res: RegistryResponse = client.delete_blob(name, digest)
             assert res.status_code is RegistryResponse.Status.OK
 
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=201,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_post_blob(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.CREATED:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "post", patch)
+        res: RegistryResponse = client.post_blob(name="python", data=b"content")
+        assert res == expected
+
     def test__bytes_iterator(self, client: RegistryClient) -> None:
         expected: bytes = b"my content"
         fake_response: MockedResponse = MockedResponse(
