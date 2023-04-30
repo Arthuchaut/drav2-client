@@ -76,7 +76,7 @@ class _BaseClient:
 
         return RegistryResponse(
             status_code=res.status_code,
-            headers=Headers.parse_obj(res.headers),
+            headers=Headers.parse_obj(dict(res.headers) | {"client": self}),
             body=result,
         )
 
@@ -169,7 +169,7 @@ class RegistryClient(_BaseClient):
         res: httpx.Response = self._client.delete(url, headers=self._auth_header)
         return self._build_response(res)
 
-    def post_blob(
+    def upload_blob(
         self, name: str, data: bytes, *, digest: Optional[SHA256] = None
     ) -> RegistryResponse:
         params: dict[str, str] = {}
@@ -180,12 +180,58 @@ class RegistryClient(_BaseClient):
             params["digest"] = digest
 
         url: str = urljoin(self.base_url, f"{name}/blobs/uploads/")
-        headers: dict[str, Any] = self._auth_header
-        headers |= {
-            "Content-Length": len(data),
+        headers: dict[str, Any] = {
+            "Content-Length": str(len(data)),
             "Content-Type": "application/octect-stream",
         }
+        headers |= self._auth_header
         res: httpx.Response = self._client.post(
             url, headers=headers, params=params, data=data
         )
         return self._build_response(res)
+
+    def get_blob_upload(self, name: str, uuid: str) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
+        res: httpx.Response = self._client.get(url, headers=self._auth_header)
+        return self._build_response(res)
+
+    def patch_blob_upload(self, name: str, uuid: str, data: bytes) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
+        headers: dict[str, Any] = {"Content-Type": "application/octect-stream"}
+        headers |= self._auth_header
+        res: httpx.Response = self._client.patch(url, headers=headers, data=data)
+        return self._build_response(res)
+
+    def put_blob_upload(
+        self, name: str, uuid: str, digest: SHA256, *, data: Optional[bytes] = None
+    ) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
+        digest = SHA256(digest)
+        digest.raise_for_validation()
+        params: dict[str, str] = {"digest": digest}
+        headers: dict[str, Any] = {
+            "Content-Type": "application/octect-stream",
+            "Content-length": "0",
+        }
+
+        if data is not None:
+            headers["Content-Length"] = str(len(data))
+
+        headers |= self._auth_header
+        res: httpx.Response = self._client.put(
+            url, headers=headers, params=params, data=data
+        )
+        return self._build_response(res)
+
+    def delete_blob_upload(self, name: str, uuid: str) -> RegistryResponse:
+        url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
+        headers: dict[str, Any] = {
+            "Content-Type": "application/octect-stream",
+            "Content-Length": "0",
+        }
+        headers |= self._auth_header
+        res: httpx.Response = self._client.delete(url, headers=headers)
+        return self._build_response(res)
+
+
+Headers.update_forward_refs(RegistryClient=RegistryClient)

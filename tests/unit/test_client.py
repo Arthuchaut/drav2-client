@@ -1,6 +1,6 @@
 import json
 from typing import Any, Callable, Iterator
-from unittest.mock import ANY
+from unittest.mock import ANY, MagicMock
 import warnings
 import httpx
 from pydantic import BaseModel
@@ -741,7 +741,7 @@ class TestClient:
             ),
         ],
     )
-    def test_post_blob(
+    def test_upload_blob(
         self,
         expected: RegistryResponse,
         client: RegistryClient,
@@ -761,7 +761,330 @@ class TestClient:
             )
 
         mocker.patch.object(httpx.Client, "post", patch)
-        res: RegistryResponse = client.post_blob(name="python", data=b"content")
+        res: RegistryResponse = client.upload_blob(
+            name="python",
+            data=b"content",
+            digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+        )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=204,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_get_blob_upload(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.NO_CONTENT:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "get", patch)
+        res: RegistryResponse = client.get_blob_upload(
+            name="python", uuid="abcd-efgh-ijkl-mnop"
+        )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=202,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_patch_blob_upload(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.ACCEPTED:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "patch", patch)
+        res: RegistryResponse = client.patch_blob_upload(
+            name="python", uuid="abcd-efgh-ijkl-mnop", data=b"content"
+        )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=201,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_put_blob_upload(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.CREATED:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "put", patch)
+        res: RegistryResponse = client.put_blob_upload(
+            name="python",
+            uuid="abcd-efgh-ijkl-mnop",
+            digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+            data=b"content",
+        )
+        assert res == expected
+
+    @pytest.mark.parametrize(
+        "expected",
+        [
+            RegistryResponse(
+                status_code=204,
+                headers=Headers(),
+                body=None,
+            ),
+            RegistryResponse(
+                status_code=400,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_INVALID",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=401,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="UNAUTHORIZED",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=404,
+                headers=Headers(),
+                body=Errors(
+                    errors=[
+                        Error(
+                            code="NAME_UNKNOWN",
+                            message="Error",
+                            detail=dict(name="python"),
+                        )
+                    ]
+                ),
+            ),
+            RegistryResponse(
+                status_code=500,
+                headers=Headers(),
+                body=Errors(errors=[Error(code="INTERNAL_ERROR")]),
+            ),
+        ],
+    )
+    def test_delete_blob_upload(
+        self,
+        expected: RegistryResponse,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        if expected.status_code is RegistryResponse.Status.NO_CONTENT:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                status_code=expected.status_code,
+            )
+        else:
+            patch: Callable[[Any], Any] = request_patch(
+                r"\w+/blobs/uploads/[a-zA-Z0-9-_.=]+",
+                dict_obj=expected.body.dict(by_alias=True),
+                status_code=expected.status_code,
+            )
+
+        mocker.patch.object(httpx.Client, "delete", patch)
+        res: RegistryResponse = client.delete_blob_upload(
+            name="python", uuid="abcd-efgh-ijkl-mnop"
+        )
         assert res == expected
 
     def test__bytes_iterator(self, client: RegistryClient) -> None:
@@ -774,3 +1097,25 @@ class TestClient:
         )
         res: bytes = b"".join([chunk for chunk in wrapper(1024)])
         assert res == expected
+
+    def test_location_go(
+        self,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        patch: Callable[[Any], Any] = request_patch(r".+", status_code=200)
+        mocker.patch.object(httpx.Client, "get", patch)
+        expected_res: RegistryResponse = RegistryResponse(
+            status_code=200, headers=Headers()
+        )
+        initial_res: RegistryResponse = RegistryResponse.construct(
+            headers=Headers.construct(
+                location=Location(
+                    url="http://fake_host/v2/path/to/my/resource/?key=val",
+                )
+            )
+        )
+        initial_res.headers.location.client = client
+        location_res: RegistryResponse = initial_res.headers.location.go()
+        assert location_res == expected_res

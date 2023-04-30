@@ -1,23 +1,73 @@
+from __future__ import annotations
 from datetime import datetime
 import enum
 import re
-from typing import Any, Final, Iterable, Optional
+from typing import Any, Final, Literal, Optional
+import httpx
 from pydantic import BaseModel, Field, validator
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import ParseResult, urlparse, parse_qs
 from drav2_client.types import SHA256
 
-__all__: list[str] = [
-    "RegistryResponse",
-    "Headers",
-    "Link",
-]
+__all__: list[str] = ["RegistryResponse", "Headers", "Link", "Range", "Location"]
 
 _LINK_URI_PATTERN: Final[re.Pattern] = re.compile(r"<(?P<uri>.+)>")
+_RANGE_PATTERN: Final[re.Pattern] = re.compile(
+    r"(?P<type>bytes=)?(?P<start>\d+)-(?P<offset>\d+)"
+)
 
 
 class Link(BaseModel):
     size: int
     last: str
+
+
+class Range(BaseModel):
+    type: Literal["bytes"] = "bytes"
+    start: int
+    offset: int
+
+
+class Location(BaseModel):
+    url: str
+    scheme: Optional[str] = ""
+    netloc: Optional[str] = ""
+    path: Optional[str] = ""
+    params: Optional[dict[str, str]] = Field({})
+    query: Optional[dict[str, str]] = Field({})
+    fragment: Optional[str] = ""
+    client: Optional["RegistryClient"] = Field(None, exclude=True)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+
+        parsed_url: ParseResult = urlparse(self.url)
+        parsed_query: dict[str, list[str]] = {
+            key: val[0]
+            for key, val in parse_qs(parsed_url.query, encoding="utf8").items()
+        }
+        parsed_params: dict[str, list[str]] = {
+            key: val[0]
+            for key, val in parse_qs(
+                parsed_url.params, encoding="utf8", separator=";"
+            ).items()
+        }
+        self.scheme = parsed_url.scheme
+        self.netloc = parsed_url.netloc
+        self.path = parsed_url.path
+        self.params = parsed_params
+        self.query = parsed_query
+        self.fragment = parsed_url.fragment
+
+    def go(self) -> RegistryResponse:
+        res: httpx.Response = self.client._client.get(
+            f"{self.scheme}://{self.netloc}{self.path}",
+            headers=self.client._auth_header,
+            params=self.query,
+        )
+        return self.client._build_response(res)
+
+    class Config:
+        arbitrary_types_allowed: bool = True
 
 
 class Headers(BaseModel):
@@ -35,18 +85,38 @@ class Headers(BaseModel):
     docker_upload_uuid: Optional[str] = Field("", alias="docker-upload-uuid")
     etag: Optional[str] = ""
     date: Optional[datetime] = None
-    range: Optional[int] = None
-    location: Optional[str] = ""
+    range: Optional[Range] = None
+    location: Optional[Location] = None
     content_length: Optional[int] = Field(None, alias="content-length")
-    content_range: Optional[int] = Field(None, alias="content-range")
+    content_range: Optional[Range] = Field(None, alias="content-range")
     accept_ranges: Optional[str] = Field("", alias="accept-ranges")
     link: Optional[Link] = None
+    client: Optional["RegistryClient"] = Field(None, exclude=True)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+
+        if self.location is not None:
+            self.location.client = self.client
 
     @validator("date", pre=True)
     def parse_date(cls, value: str | None) -> datetime | None:
         if value:
             # Sat, 01 Apr 2023 23:18:26 GMT
             return datetime.strptime(value, "%a, %d %b %Y %H:%M:%S %Z")
+
+    @validator("location", pre=True)
+    def parse_location(cls, value: str | None) -> Location | None:
+        if value:
+            return Location(url=value)
+
+    @validator("range", "content_range", pre=True)
+    def parse_range(cls, value: str | None) -> Range | None:
+        if value and (match := _RANGE_PATTERN.search(value)):
+            type_: str = match.group("type") or "bytes"
+            return Range(
+                type=type_, start=match.group("start"), offset=match.group("offset")
+            )
 
     @validator("link", pre=True)
     def parse_link(cls, value: str | None) -> Link | None:
@@ -69,6 +139,9 @@ class Headers(BaseModel):
             return kwargs["field"].default
 
         return value
+
+    class Config:
+        arbitrary_types_allowed: bool = True
 
 
 class RegistryResponse(BaseModel):
@@ -100,7 +173,7 @@ class RegistryResponse(BaseModel):
         NOT_EXTENDED = 510
         NETWORK_AUTHENTICATION_REQUIRED = 511
 
-    status_code: Status
+    status_code: RegistryResponse.Status
     headers: Headers
     body: Optional[BaseModel] = None
 
