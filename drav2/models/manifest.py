@@ -173,7 +173,7 @@ class HistoryItem(BaseModel):
     """The image building statement history field of the ManifestV1 model.
 
     Note:
-        The number of items should be equals to the number of layers.
+        The number of items should be equal to the number of layers.
 
     Attributes:
         v1_compatibility (Optional): The statement layer.

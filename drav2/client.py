@@ -64,7 +64,8 @@ class _BaseClient:
         Args:
             res: The raw HTTP response.
             model (Optional): The model to use to parse the response body.
-            from_bytes (Optional): Specify the nature of the response body.
+            from_bytes (Optional): Specify if the response body is binary data.
+                Default to False.
             additional_meta (Optional): Specify some additional meta to give to
                 the RegistryResponse model. These meta will be given to the concerned
                 models by the RegistryResponse constructor.
@@ -103,7 +104,7 @@ class RegistryClient(_BaseClient):
         """Check the availability of the registry API.
 
         Note:
-            The response status_code should be equals to 200.
+            The response status_code should be equal to 200.
 
         Returns:
             RegistryResponse[None | Error]: The registry response from the API.
@@ -279,7 +280,7 @@ class RegistryClient(_BaseClient):
     def initiate_blob_upload(
         self, name: str, data: bytes, *, digest: Optional[SHA256] = None
     ) -> RegistryResponse[None | Error]:
-        """Upload a blob to the registry.
+        """Initiate a blob upload to the registry.
 
         Args:
             name: The repository name.
