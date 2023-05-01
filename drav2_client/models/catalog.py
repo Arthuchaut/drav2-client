@@ -7,6 +7,12 @@ __all__: list[str] = [
 
 
 class Catalog(BaseModel):
+    """The repositories catalog model definition.
+
+    Attributes:
+        repositories (Optional): The list of the repositories in the remote registry.
+    """
+
     repositories: Optional[list[str]] = Field([])
 
     @validator("*")

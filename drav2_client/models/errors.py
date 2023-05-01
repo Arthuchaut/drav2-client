@@ -12,6 +12,15 @@ __all__: list[str] = [
 
 
 class Error(BaseModel):
+    """The registry error response.
+
+    Attributes:
+        code (Optional): The error code.
+        message (Optional): The error message.
+        detail: The error's details. Can take many forms so we can't
+            determine the type.
+    """
+
     class Code(str, enum.Enum):
         BLOB_UNKNOWN = "BLOB_UNKNOWN"
         BLOB_UPLOAD_INVALID = "BLOB_UPLOAD_INVALID"
@@ -45,6 +54,12 @@ class Error(BaseModel):
 
 
 class Errors(BaseModel):
+    """The registry errors list model definition.
+
+    Attributes:
+        errors (Optional): The errors list from the registry response.
+    """
+
     errors: Optional[list[Error]] = Field([])
 
     @validator("*")

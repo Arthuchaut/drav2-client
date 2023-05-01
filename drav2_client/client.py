@@ -14,6 +14,12 @@ __all__: list[str] = [
 
 
 class _BaseClient:
+    """The registry client base class.
+
+    Attributes:
+        base_url: The base URL of the registry API (should contains the version too).
+    """
+
     def __init__(
         self,
         base_url: str,
@@ -28,22 +34,18 @@ class _BaseClient:
 
     @cached_property
     def _auth_header(self) -> dict[str, str]:
+        """Build the authorization header according to the given loggins if exists.
+
+        Returns:
+            dict[str, str]: The authorization header. Default to {} of no loggins given.
+        """
+
         if self._user_id and self._password:
             fmt: str = f"{self._user_id}:{self._password}"
             basic: str = base64.b64encode(fmt.encode("utf8")).decode("utf8")
             return {"Authorization": f"Basic {basic}"}
 
         return {}
-
-    @classmethod
-    def _bytes_iterator(cls, res: httpx.Response) -> Iterator[bytes]:
-        def wrapper(chunk_size: int = 1024) -> Iterator[bytes]:
-            try:
-                yield from res.iter_bytes(chunk_size=chunk_size)
-            finally:
-                res.close()
-
-        return wrapper
 
     def _build_response(
         self,
@@ -52,7 +54,21 @@ class _BaseClient:
         model: Optional[type[BaseModel]] = None,
         from_bytes: bool = False,
         additional_meta: dict[str, Any] = {},
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[Any]:
+        """Parse the registry response.
+
+        Args:
+            res: The raw HTTP response.
+            model (Optional): The model to use to parse the response body.
+            from_bytes (Optional): Specify the nature of the response body.
+            additional_meta (Optional): Specify some additional meta to give to
+                the RegistryResponse model. These meta will be given to the concerned
+                models by the RegistryResponse constructor.
+
+        Returns:
+            RegistryResponse[Any]: The parsed registry response.
+        """
+
         result: BaseModel | None = None
         additional_meta["client"] = self
 
@@ -75,15 +91,38 @@ class _BaseClient:
 
 
 class RegistryClient(_BaseClient):
+    """The registry client class."""
+
     _DEFAULT_RESULT_SIZE: ClassVar[int] = 10
 
-    def check_version(self) -> RegistryResponse:
+    def check_version(self) -> RegistryResponse[None | Error]:
+        """Check the availability of the registry API.
+
+        Note:
+            The response status_code should be equals to 200.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response from the API.
+        """
+
         res: httpx.Response = self._client.get(self.base_url, headers=self._auth_header)
         return self._build_response(res)
 
     def get_catalog(
         self, *, size: Optional[int] = _DEFAULT_RESULT_SIZE, last: Optional[str] = ""
-    ) -> RegistryResponse[Catalog]:
+    ) -> RegistryResponse[Catalog | Error]:
+        """Retrieve the repositories list from the remote registry.
+
+        Args:
+            size (Optional): The maximum results of the given page. Default to
+                _DEFAULT_RESULT_SIZE.
+            last (Optional): The last item of the results that will be used to query
+                the next page.
+
+        Returns:
+            RegistryResponse[Catalog | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, "_catalog")
         res: httpx.Response = self._client.get(
             url, params=dict(n=size, last=last), headers=self._auth_header
@@ -96,7 +135,20 @@ class RegistryClient(_BaseClient):
         *,
         size: Optional[int] = _DEFAULT_RESULT_SIZE,
         last: Optional[str] = "",
-    ) -> RegistryResponse[Tags]:
+    ) -> RegistryResponse[Tags | Error]:
+        """Retrieve of the tags of the given repository name.
+
+        Args:
+            name: The repository name.
+            size (Optional): The maximum results of the given page. Default to
+                _DEFAULT_RESULT_SIZE.
+            last (Optional): The last item of the results that will be used to query
+                the next page.
+
+        Returns:
+            RegistryResponse[Tags | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/tags/list")
         res: httpx.Response = self._client.get(
             url, params=dict(n=size, last=last), headers=self._auth_header
@@ -113,7 +165,19 @@ class RegistryClient(_BaseClient):
             MediaType.SIGNED_MANIFEST_V1,
             MediaType.MANIFEST_V1,
         ] = MediaType.MANIFEST_V2,
-    ) -> RegistryResponse[ManifestV1 | ManifestV2]:
+    ) -> RegistryResponse[ManifestV1 | ManifestV2 | Error]:
+        """Retrieve the repository's manifest.
+
+        Args:
+            name: The repository name.
+            reference: The repository reference (should be a tag name).
+            media_type (Optional): The expected schema version of the returned manifest.
+                Default to MediaType.MANIFEST_V2.
+
+        Returns:
+            RegistryResponse[ManifestV1 | ManifestV2 | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
         headers |= {"Accept": media_type}
@@ -128,8 +192,24 @@ class RegistryClient(_BaseClient):
         return self._build_response(res, model=model, additional_meta=additional_meta)
 
     def get_blob(
-        self, name: str, digest: SHA256, *, stream: bool = False
-    ) -> RegistryResponse[Blob]:
+        self, name: str, digest: SHA256, *, stream: bool = True
+    ) -> RegistryResponse[Blob | Error]:
+        """Retrieve the blob from the registry.
+
+        Args:
+            name: The repository name.
+            digest: The digest of the desired blob from the manifest layers
+                or the manifest digest itself.
+            stream (Optional): Read the blob content in stream mode. It's strongly
+                recommanded to set it to True to avoid high memory consumption.
+                If the stream mode is set to True, use the
+                <RegistryResponse>.body.iter_bytes() method to read the binary data.
+                Default to True.
+
+        Returns:
+            RegistryResponse[Blob | Error]: The registry response.
+        """
+
         digest = SHA256(digest)
         digest.raise_for_validation()
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
@@ -141,7 +221,18 @@ class RegistryClient(_BaseClient):
 
     def put_manifest(
         self, name: str, reference: str, manifest: ManifestV1 | ManifestV2
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[None | Error]:
+        """Put a manifest to the remote registry.
+
+        Args:
+            name: The repository name.
+            reference: The repository reference (should be a tag name).
+            manifest: The manifest to put to the registry.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
         res: httpx.Response = self._client.put(
@@ -149,22 +240,58 @@ class RegistryClient(_BaseClient):
         )
         return self._build_response(res)
 
-    def delete_manifest(self, name: str, reference: str) -> RegistryResponse:
+    def delete_manifest(
+        self, name: str, reference: str
+    ) -> RegistryResponse[None | Error]:
+        """Delete a manifest from the registry.
+
+        Args:
+            name: The repository name.
+            reference: The repository reference (should be a tag name).
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
         res: httpx.Response = self._client.delete(url, headers=headers)
         return self._build_response(res)
 
-    def delete_blob(self, name: str, digest: SHA256) -> RegistryResponse:
+    def delete_blob(self, name: str, digest: SHA256) -> RegistryResponse[None | Error]:
+        """Delete a blob from the registry.
+
+        Args:
+            name: The repository name.
+            digest: The digest of the desired blob from the manifest layers
+                or the manifest digest itself.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         digest = SHA256(digest)
         digest.raise_for_validation()
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")
         res: httpx.Response = self._client.delete(url, headers=self._auth_header)
         return self._build_response(res)
 
-    def upload_blob(
+    def initiate_blob_upload(
         self, name: str, data: bytes, *, digest: Optional[SHA256] = None
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[None | Error]:
+        """Upload a blob to the registry.
+
+        Args:
+            name: The repository name.
+            data: The binary content of the blob.
+            digest (Optional): The digest that identify the uploaded blob.
+                If given, given data will be used to complete the upload
+                in a single request.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         params: dict[str, str] = {}
 
         if digest is not None:
@@ -183,21 +310,62 @@ class RegistryClient(_BaseClient):
         )
         return self._build_response(res)
 
-    def get_blob_upload(self, name: str, uuid: str) -> RegistryResponse:
+    def get_blob_upload(self, name: str, uuid: str) -> RegistryResponse[None | Error]:
+        """Get the state of a blob upload.
+
+        Args:
+            name: The repository name.
+            uuid: The identifier of the targeted blob upload.
+                This information is given by the docker_upload_uuid header of the
+                registry response of the initiate_blob_upload() method.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
         res: httpx.Response = self._client.get(url, headers=self._auth_header)
         return self._build_response(res)
 
-    def patch_blob_upload(self, name: str, uuid: str, data: bytes) -> RegistryResponse:
+    def patch_blob_upload(
+        self, name: str, uuid: str, data: bytes
+    ) -> RegistryResponse[None | Error]:
+        """Upload a chunk of data for the specified upload.
+
+        Args:
+            name: The repository name.
+            uuid: The identifier of the targeted blob upload.
+                This information is given by the docker_upload_uuid header of the
+                registry response of the initiate_blob_upload() method.
+            data: The chunk of data to upload.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
         headers: dict[str, Any] = {"Content-Type": "application/octect-stream"}
         headers |= self._auth_header
         res: httpx.Response = self._client.patch(url, headers=headers, data=data)
         return self._build_response(res)
 
-    def put_blob_upload(
+    def complete_blob_upload(
         self, name: str, uuid: str, digest: SHA256, *, data: Optional[bytes] = None
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[None | Error]:
+        """Complete the blob upload, optionally appending the data as the final chunk.
+
+        Args:
+            name: The repository name.
+            uuid: The identifier of the targeted blob upload.
+                This information is given by the docker_upload_uuid header of the
+                registry response of the initiate_blob_upload() method.
+            digest: The digest of the uploaded blob.
+            data (Optional): The final chunk of data to upload.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
         digest = SHA256(digest)
         digest.raise_for_validation()
@@ -216,7 +384,22 @@ class RegistryClient(_BaseClient):
         )
         return self._build_response(res)
 
-    def delete_blob_upload(self, name: str, uuid: str) -> RegistryResponse:
+    def cancel_blob_upload(
+        self, name: str, uuid: str
+    ) -> RegistryResponse[None | Error]:
+        """Cancel a blob upload.
+        The uploaded content should be removed from the registry.
+
+        Args:
+            name: The repository name.
+            uuid: The identifier of the targeted blob upload.
+                This information is given by the docker_upload_uuid header of the
+                registry response of the initiate_blob_upload() method.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
         url: str = urljoin(self.base_url, f"{name}/blobs/uploads/{uuid}")
         headers: dict[str, Any] = {
             "Content-Type": "application/octect-stream",

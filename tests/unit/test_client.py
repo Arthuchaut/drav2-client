@@ -85,7 +85,6 @@ class TestBaseClient:
         client: RegistryClient,
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(client, "_bytes_iterator")
         expected: RegistryResponse = RegistryResponse(
             status_code=res.status_code, headers=Headers.parse_obj(res.headers)
         )
@@ -713,7 +712,7 @@ class TestClient:
             ),
         ],
     )
-    def test_upload_blob(
+    def test_initiate_blob_upload(
         self,
         expected: RegistryResponse,
         client: RegistryClient,
@@ -733,7 +732,7 @@ class TestClient:
             )
 
         mocker.patch.object(httpx.Client, "post", patch)
-        res: RegistryResponse = client.upload_blob(
+        res: RegistryResponse = client.initiate_blob_upload(
             name="python",
             data=b"content",
             digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
@@ -952,7 +951,7 @@ class TestClient:
             ),
         ],
     )
-    def test_put_blob_upload(
+    def test_complete_blob_upload(
         self,
         expected: RegistryResponse,
         client: RegistryClient,
@@ -972,7 +971,7 @@ class TestClient:
             )
 
         mocker.patch.object(httpx.Client, "put", patch)
-        res: RegistryResponse = client.put_blob_upload(
+        res: RegistryResponse = client.complete_blob_upload(
             name="python",
             uuid="abcd-efgh-ijkl-mnop",
             digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
@@ -1034,7 +1033,7 @@ class TestClient:
             ),
         ],
     )
-    def test_delete_blob_upload(
+    def test_cancel_blob_upload(
         self,
         expected: RegistryResponse,
         client: RegistryClient,
@@ -1054,20 +1053,9 @@ class TestClient:
             )
 
         mocker.patch.object(httpx.Client, "delete", patch)
-        res: RegistryResponse = client.delete_blob_upload(
+        res: RegistryResponse = client.cancel_blob_upload(
             name="python", uuid="abcd-efgh-ijkl-mnop"
         )
-        assert res == expected
-
-    def test__bytes_iterator(self, client: RegistryClient) -> None:
-        expected: bytes = b"my content"
-        fake_response: MockedResponse = MockedResponse(
-            status_code=200, headers={}, text=expected.decode("utf8")
-        )
-        wrapper: Callable[[int], Iterator[bytes]] = client._bytes_iterator(
-            fake_response
-        )
-        res: bytes = b"".join([chunk for chunk in wrapper(1024)])
         assert res == expected
 
     def test_location_go(
@@ -1088,6 +1076,6 @@ class TestClient:
                 )
             )
         )
-        initial_res.headers.location.client = client
+        initial_res.headers.location._client = client
         location_res: RegistryResponse = initial_res.headers.location.go()
         assert location_res == expected_res

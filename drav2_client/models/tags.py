@@ -7,6 +7,13 @@ __all__: list[str] = [
 
 
 class Tags(BaseModel):
+    """The reposiroty tags model definition.
+
+    Attributes:
+        name (Optional): The repository name.
+        tags (Optional): The tags list of the repository.
+    """
+
     name: Optional[str] = ""
     tags: Optional[list[str]] = Field([])
 

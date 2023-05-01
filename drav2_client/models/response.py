@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 import enum
 import re
-from typing import Any, Final, Generic, Literal, Optional, TYPE_CHECKING
+from typing import Any, ClassVar, Final, Generic, Literal, Optional, TYPE_CHECKING
 import httpx
 from pydantic import BaseModel, Field, validator
 from urllib.parse import ParseResult, urlparse, parse_qs
@@ -28,17 +28,49 @@ _RANGE_PATTERN: Final[re.Pattern] = re.compile(
 
 
 class Link(BaseModel):
+    """The header's link model definition.
+
+    Attributes:
+        size: The maximum length of the resource's results.
+        last: The last element of the resource from which the pagination should be
+            begining.
+    """
+
     size: int
     last: str
 
 
 class Range(BaseModel):
+    """The bytes interval definition.
+
+    Attributes:
+        type (Optional): The type of the bytes range. Must be always "bytes".
+        start: The start part of the bytes range.
+        offset: The interval bytes offset.
+    """
+
     type: Literal["bytes"] = "bytes"
     start: int
     offset: int
 
 
 class Location(BaseModel):
+    """The header's location model definition.
+
+    Attributes:
+        url: The whole URL string.
+        scheme (Optional): The protocol part of the URL (should be "http" or "https").
+        netloc (Optional): The <hostname>[:<port>] part of the URL.
+        path (Optional): The path part of the URL.
+        params (Optional): The params part of the URL. Notice that the params is
+            different of the query. See the RFC3986 to learn more:
+            https://datatracker.ietf.org/doc/html/rfc3986#section-3.3.
+        query (Optional): The query part of the URL.
+        fragment (Optional): The fragment part of the URL.
+            See the RFC3986 to learn more:
+            https://datatracker.ietf.org/doc/html/rfc3986#section-3.5.
+    """
+
     url: str
     scheme: Optional[str] = ""
     netloc: Optional[str] = ""
@@ -46,9 +78,16 @@ class Location(BaseModel):
     params: Optional[dict[str, str]] = Field({})
     query: Optional[dict[str, str]] = Field({})
     fragment: Optional[str] = ""
-    client: Optional["RegistryClient"] = Field(None, exclude=True)
+    _client: Optional["RegistryClient"] = None
 
     def __init__(self, **data: Any) -> None:
+        """The custom model constructor.
+        Parse and fill the URL parts.
+
+        Args:
+            **data: The model metadata.
+        """
+
         super().__init__(**data)
         parsed_url: ParseResult = urlparse(self.url)
         self.scheme = parsed_url.scheme
@@ -67,15 +106,44 @@ class Location(BaseModel):
         self.fragment = parsed_url.fragment
 
     def go(self) -> RegistryResponse:
-        res: httpx.Response = self.client._client.get(
+        """Request the location URL.
+
+        Returns:
+            RegistryResponse: The response from the remote registry.
+        """
+
+        res: httpx.Response = self._client._client.get(
             f"{self.scheme}://{self.netloc}{self.path}",
-            headers=self.client._auth_header,
+            headers=self._client._auth_header,
             params=self.query,
         )
-        return self.client._build_response(res)
+        return self._client._build_response(res)
+
+    class Config:
+        underscore_attrs_are_private: ClassVar[Literal[True]] = True
 
 
 class Headers(BaseModel):
+    """The HTTP response headers from the registry.
+
+    Attributes:
+        content_type (Optional): The media type of the body.
+        docker_distribution_api_version (Optional): The registry API version.
+        x_content_type_options (Optional): The marker of the MIME type.
+        www_authenticate (Optional): The authentication method that should be used if
+            any authentication error is raised by the server.
+        docker_content_digest (Optional): The hash of the targeted content of the request.
+        docker_upload_uuid (Optional): The blob upload uuid.
+        etag (Optional): Identify the version of the given resource.
+        date (Optional): The origin datetime of the request.
+        range (Optional): The bytes interval of the given resource.
+        location (Optional): The resource location information.
+        content_length (Optional): The resource content size.
+        content_range (Optional): The bytes interval of the uploaded blob.
+        accept_ranges (Optional): The expected type of the range. Should be always bytes.
+        link (Optional): The resource location in pagination mode.
+    """
+
     content_type: Optional[str] = Field("", alias="content-type")
     docker_distribution_api_version: Optional[str] = Field(
         "",
@@ -140,6 +208,15 @@ class Headers(BaseModel):
 
 
 class RegistryResponse(BaseModel, Generic[T]):
+    """The registry response model definition.
+    Should be used to parse and return any response from the remote registry.
+
+    Attributes:
+        status_code: The response HTTP status code.
+        headers: The response headers.
+        body (Optional): The response body is any.
+    """
+
     class Status(enum.IntEnum):
         OK = 200
         CREATED = 201
@@ -172,13 +249,19 @@ class RegistryResponse(BaseModel, Generic[T]):
     headers: Headers
     body: Optional[T] = None
 
-    def __init__(
-        self, *, additional_meta: Optional[dict[str, Any]] = {}, **data: Any
-    ) -> None:
+    def __init__(self, *, additional_meta: dict[str, Any] = {}, **data: Any) -> None:
+        """The custom model constructor.
+
+        Args:
+            additional_meta (Optional): Any additional metadata which will be given to
+                the concerned models to enrich them.
+            **data: The model metadata (the body of the registry response).
+        """
+
         super().__init__(**data)
 
         if self.headers.location is not None:
-            self.headers.location.client = additional_meta.get("client")
+            self.headers.location._client = additional_meta.get("client")
         if isinstance(self.body, ManifestV2):
             for layer in self.body.layers:
                 layer._client = additional_meta.get("client")
