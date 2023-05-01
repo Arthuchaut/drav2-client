@@ -2,12 +2,16 @@ from __future__ import annotations
 from datetime import datetime
 import enum
 import re
-from typing import Any, Final, Literal, Optional
+from typing import Any, Final, Generic, Literal, Optional, TYPE_CHECKING
 import httpx
 from pydantic import BaseModel, Field, validator
 from urllib.parse import ParseResult, urlparse, parse_qs
 from drav2_client.models.manifest import ManifestV1, ManifestV2
-from drav2_client.types import SHA256
+from drav2_client.types import SHA256, T
+
+# To prevent circular import on runtime
+if TYPE_CHECKING:
+    from drav2_client.client import RegistryClient
 
 __all__: list[str] = [
     "RegistryResponse",
@@ -135,7 +139,7 @@ class Headers(BaseModel):
         return value
 
 
-class RegistryResponse(BaseModel):
+class RegistryResponse(BaseModel, Generic[T]):
     class Status(enum.IntEnum):
         OK = 200
         CREATED = 201
@@ -166,7 +170,7 @@ class RegistryResponse(BaseModel):
 
     status_code: RegistryResponse.Status
     headers: Headers
-    body: Optional[BaseModel] = None
+    body: Optional[T] = None
 
     def __init__(
         self, *, additional_meta: Optional[dict[str, Any]] = {}, **data: Any

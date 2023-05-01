@@ -83,7 +83,7 @@ class RegistryClient(_BaseClient):
 
     def get_catalog(
         self, *, size: Optional[int] = _DEFAULT_RESULT_SIZE, last: Optional[str] = ""
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[Catalog]:
         url: str = urljoin(self.base_url, "_catalog")
         res: httpx.Response = self._client.get(
             url, params=dict(n=size, last=last), headers=self._auth_header
@@ -96,7 +96,7 @@ class RegistryClient(_BaseClient):
         *,
         size: Optional[int] = _DEFAULT_RESULT_SIZE,
         last: Optional[str] = "",
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[Tags]:
         url: str = urljoin(self.base_url, f"{name}/tags/list")
         res: httpx.Response = self._client.get(
             url, params=dict(n=size, last=last), headers=self._auth_header
@@ -113,7 +113,7 @@ class RegistryClient(_BaseClient):
             MediaType.SIGNED_MANIFEST_V1,
             MediaType.MANIFEST_V1,
         ] = MediaType.MANIFEST_V2,
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[ManifestV1 | ManifestV2]:
         url: str = urljoin(self.base_url, f"{name}/manifests/{reference}")
         headers: dict[str, str] = self._auth_header
         headers |= {"Accept": media_type}
@@ -129,7 +129,7 @@ class RegistryClient(_BaseClient):
 
     def get_blob(
         self, name: str, digest: SHA256, *, stream: bool = False
-    ) -> RegistryResponse:
+    ) -> RegistryResponse[Blob]:
         digest = SHA256(digest)
         digest.raise_for_validation()
         url: str = urljoin(self.base_url, f"{name}/blobs/{digest}")

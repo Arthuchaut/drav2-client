@@ -1,6 +1,8 @@
 import enum
 import re
-from typing import Any, ClassVar, NewType
+from typing import Any, ClassVar, NewType, TypeVar
+
+from pydantic import BaseModel
 
 __all__: list[str] = [
     "AnyTransport",
@@ -9,6 +11,7 @@ __all__: list[str] = [
 ]
 
 AnyTransport: Any = Any
+T = TypeVar("T", bound=BaseModel)
 
 
 class MediaType(str, enum.Enum):

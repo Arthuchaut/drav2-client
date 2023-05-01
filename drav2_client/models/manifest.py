@@ -1,8 +1,14 @@
 from functools import cached_property
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional, TYPE_CHECKING
 import warnings
 from pydantic import BaseModel, Field, validator
+from drav2_client.models.blob import Blob
 from drav2_client.types import SHA256, MediaType
+
+# To prevent circular import on runtime
+if TYPE_CHECKING:
+    from drav2_client.client import RegistryClient
+    from drav2_client.models.response import RegistryResponse
 
 __all__: list[str] = [
     "ManifestV1",
@@ -45,7 +51,7 @@ class Layer(BaseModel):
     _name: Optional[str] = ""
     _client: Optional["RegistryClient"] = None
 
-    def get_blob(self, stream: bool = True) -> "RegistryResponse":
+    def get_blob(self, stream: bool = True) -> "RegistryResponse[Blob]":
         return self._client.get_blob(self._name, self.digest, stream=stream)
 
     @validator("digest", pre=True)
@@ -94,7 +100,7 @@ class FsLayer(BaseModel):
     _name: Optional[str] = ""
     _client: Optional["RegistryClient"] = None
 
-    def get_blob(self, stream: bool = True) -> "RegistryResponse":
+    def get_blob(self, stream: bool = True) -> "RegistryResponse[Blob]":
         return self._client.get_blob(self._name, self.blob_sum, stream=stream)
 
     @validator("*")
