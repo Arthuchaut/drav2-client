@@ -10,7 +10,7 @@ from drav2_client.models.manifest import ManifestV1, ManifestV2
 from drav2_client.types import SHA256, T
 
 # To prevent circular import on runtime
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from drav2_client.client import RegistryClient
 
 __all__: list[str] = [
@@ -38,6 +38,8 @@ class Link(BaseModel):
 
     size: int
     last: str
+
+    # TODO: Implement a method to query the next page
 
 
 class Range(BaseModel):

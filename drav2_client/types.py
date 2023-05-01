@@ -1,13 +1,13 @@
 import enum
 import re
-from typing import Any, ClassVar, NewType, TypeVar
-
+from typing import Any, ClassVar, TypeVar
 from pydantic import BaseModel
 
 __all__: list[str] = [
     "AnyTransport",
     "MediaType",
     "SHA256",
+    "T",
 ]
 
 AnyTransport: Any = Any
@@ -29,6 +29,13 @@ class SHA256(str):
     _SHA256_PATTERN: ClassVar[re.Pattern] = re.compile(r"sha256:[a-f\d]{64}")
 
     def raise_for_validation(self) -> None:
+        """Should be called after the instantiation of the class to check the validity
+        of the hash.
+
+        Raises:
+            ValueError: If the hash does not fit the pattern matching.
+        """
+
         if not self._SHA256_PATTERN.match(self.lower()):
             raise ValueError(
                 f"The SHA256 hash should follow the "

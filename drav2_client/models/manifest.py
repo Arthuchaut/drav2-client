@@ -7,7 +7,7 @@ from drav2_client.models.errors import Error
 from drav2_client.types import SHA256, MediaType
 
 # To prevent circular import on runtime
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from drav2_client.client import RegistryClient
     from drav2_client.models.response import RegistryResponse
 

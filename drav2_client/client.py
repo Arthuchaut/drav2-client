@@ -1,7 +1,7 @@
 import base64
 from functools import cached_property
 import json
-from typing import Any, ClassVar, Iterator, Literal, Optional
+from typing import Any, ClassVar, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
@@ -118,7 +118,7 @@ class RegistryClient(_BaseClient):
         return self._build_response(res)
 
     def get_catalog(
-        self, *, size: Optional[int] = _DEFAULT_RESULT_SIZE, last: Optional[str] = ""
+        self, *, size: int = _DEFAULT_RESULT_SIZE, last: str = ""
     ) -> RegistryResponse[Catalog | Error]:
         """Retrieve the repositories list from the remote registry.
 
@@ -139,11 +139,7 @@ class RegistryClient(_BaseClient):
         return self._build_response(res, model=Catalog)
 
     def get_tags(
-        self,
-        name: str,
-        *,
-        size: Optional[int] = _DEFAULT_RESULT_SIZE,
-        last: Optional[str] = "",
+        self, name: str, *, size: int = _DEFAULT_RESULT_SIZE, last: str = ""
     ) -> RegistryResponse[Tags | Error]:
         """Retrieve of the tags of the given repository name.
 

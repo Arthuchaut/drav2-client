@@ -5,6 +5,7 @@ from pydantic import ValidationError
 import pytest
 from drav2_client.models.catalog import Catalog
 from drav2_client.models.blob import Blob
+from drav2_client.models.manifest import FsLayer, ManifestV1
 from drav2_client.models.response import (
     Headers,
     Link,
@@ -84,25 +85,12 @@ class TestResponse:
                 {
                     "status_code": 200,
                     "headers": {},
-                    "body": Blob.construct(content=b"blob"),
+                    "body": ManifestV1.construct(fs_layers=[FsLayer.construct()]),
                 },
                 RegistryResponse.construct(
                     status_code=RegistryResponse.Status.OK,
                     headers=Headers.construct(),
-                    body=Blob.construct(content=b"blob"),
-                ),
-                None,
-            ),
-            (
-                {
-                    "status_code": 200,
-                    "headers": {},
-                    "body": Blob.construct(content=b"blob"),
-                },
-                RegistryResponse.construct(
-                    status_code=RegistryResponse.Status.OK,
-                    headers=Headers.construct(),
-                    body=Blob.construct(content=b"blob"),
+                    body=ManifestV1.construct(fs_layers=[FsLayer.construct()]),
                 ),
                 None,
             ),
