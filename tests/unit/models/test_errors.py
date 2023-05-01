@@ -2,7 +2,7 @@ import datetime
 from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
-from drav2_client.models.errors import Error, Errors
+from drav2.models.errors import Error, Errors
 
 
 class TestErrors:

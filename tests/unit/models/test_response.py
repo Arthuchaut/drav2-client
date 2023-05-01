@@ -1,12 +1,10 @@
 import datetime
-from pprint import pp
 from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
-from drav2_client.models.catalog import Catalog
-from drav2_client.models.blob import Blob
-from drav2_client.models.manifest import FsLayer, ManifestV1
-from drav2_client.models.response import (
+from drav2.models.catalog import Catalog
+from drav2.models.manifest import FsLayer, ManifestV1
+from drav2.models.response import (
     Headers,
     Link,
     RegistryResponse,

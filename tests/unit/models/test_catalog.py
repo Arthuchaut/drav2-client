@@ -1,7 +1,7 @@
 from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
-from drav2_client.models.catalog import Catalog
+from drav2.models.catalog import Catalog
 
 
 class TestCatalog:

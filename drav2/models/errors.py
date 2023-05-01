@@ -2,9 +2,6 @@ import enum
 from typing import Any, Optional
 from pydantic import BaseModel, Field, validator
 
-from drav2_client.types import SHA256
-
-
 __all__: list[str] = [
     "Errors",
     "Error",

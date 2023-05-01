@@ -5,8 +5,8 @@ from typing import Any, ClassVar, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
-from drav2_client.types import SHA256, AnyTransport, MediaType
-from drav2_client.models import *
+from drav2.types import SHA256, AnyTransport, MediaType
+from drav2.models import *
 
 __all__: list[str] = [
     "RegistryClient",

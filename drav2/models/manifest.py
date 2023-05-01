@@ -2,14 +2,14 @@ from functools import cached_property
 from typing import Any, ClassVar, Literal, Optional, TYPE_CHECKING
 import warnings
 from pydantic import BaseModel, Field, validator
-from drav2_client.models.blob import Blob
-from drav2_client.models.errors import Error
-from drav2_client.types import SHA256, MediaType
+from drav2.models.blob import Blob
+from drav2.models.errors import Error
+from drav2.types import SHA256, MediaType
 
 # To prevent circular import on runtime
 if TYPE_CHECKING:  # pragma: no cover
-    from drav2_client.client import RegistryClient
-    from drav2_client.models.response import RegistryResponse
+    from drav2.client import RegistryClient
+    from drav2.models.response import RegistryResponse
 
 __all__: list[str] = [
     "ManifestV1",

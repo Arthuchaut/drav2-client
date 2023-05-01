@@ -1,7 +1,7 @@
 from typing import Any, Callable
 from pydantic import ValidationError
 import pytest
-from drav2_client.models.tags import Tags
+from drav2.models.tags import Tags
 
 
 class TestTags:

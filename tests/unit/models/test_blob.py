@@ -1,5 +1,5 @@
 import pytest
-from drav2_client.models.blob import Blob, UnreadableError
+from drav2.models.blob import Blob, UnreadableError
 from conftest import MockedResponse
 
 

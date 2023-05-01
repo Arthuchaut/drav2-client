@@ -6,9 +6,9 @@ from pydantic import BaseModel
 import pytest
 from pytest_mock import MockerFixture
 from conftest import _FAKE_BASE_URL
-from drav2_client.client import *
-from drav2_client.models import *
-from drav2_client.types import MediaType
+from drav2.client import *
+from drav2.models import *
+from drav2.types import MediaType
 from conftest import MockedResponse
 
 

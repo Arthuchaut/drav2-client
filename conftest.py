@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import ValidationError
 import pytest
-from drav2_client.client import RegistryClient
+from drav2.client import RegistryClient
 
 _FAKE_BASE_URL: Final[str] = "http://fake_host/v2/"
 

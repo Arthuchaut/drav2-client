@@ -6,12 +6,12 @@ from typing import Any, ClassVar, Final, Generic, Literal, Optional, TYPE_CHECKI
 import httpx
 from pydantic import BaseModel, Field, validator
 from urllib.parse import ParseResult, urlparse, parse_qs
-from drav2_client.models.manifest import ManifestV1, ManifestV2
-from drav2_client.types import SHA256, T
+from drav2.models.manifest import ManifestV1, ManifestV2
+from drav2.types import SHA256, T
 
 # To prevent circular import on runtime
 if TYPE_CHECKING:  # pragma: no cover
-    from drav2_client.client import RegistryClient
+    from drav2.client import RegistryClient
 
 __all__: list[str] = [
     "RegistryResponse",

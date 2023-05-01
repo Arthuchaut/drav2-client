@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
-from drav2_client.client import RegistryClient
+from drav2.client import RegistryClient
 
-from drav2_client.models.manifest import (
+from drav2.models.manifest import (
     Config,
     FsLayer,
     Signature,
