@@ -59,7 +59,7 @@ class _BaseClient:
         model: Optional[type[BaseModel]] = None,
         from_bytes: bool = False,
         additional_meta: dict[str, Any] = {},
-    ) -> RegistryResponse[Any]:
+    ) -> RegistryResponse[BaseModel | None]:
         """Parse the registry response.
 
         Args:
@@ -71,7 +71,7 @@ class _BaseClient:
                 models by the RegistryResponse constructor.
 
         Returns:
-            RegistryResponse[Any]: The parsed registry response.
+            RegistryResponse[BaseModel | None]: The parsed registry response.
         """
 
         result: BaseModel | None = None

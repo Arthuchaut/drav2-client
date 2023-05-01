@@ -1,7 +1,10 @@
 import datetime
 from typing import Any, Callable
+from unittest.mock import MagicMock
 from pydantic import ValidationError
 import pytest
+from pytest_mock import MockerFixture
+from drav2.client import RegistryClient
 from drav2.models.catalog import Catalog
 from drav2.models.manifest import FsLayer, ManifestV1
 from drav2.models.response import (
@@ -35,7 +38,14 @@ class TestResponse:
                     headers=Headers.construct(
                         content_type="application/json",
                         docker_content_digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
-                        link=Link(last="python", size=10),
+                        link=Link.construct(
+                            uri="/path/to/resource/?last=python&n=10",
+                            path="/path/to/resource/",
+                            query={
+                                "last": "python",
+                                "n": "10",
+                            },
+                        ),
                         date=datetime.datetime(2023, 4, 1, 23, 18, 26),
                         location=Location.construct(
                             url="https://hostname:443/path/to/my/resource/?key=val",
@@ -139,3 +149,52 @@ class TestResponse:
                 assert_sequences_equals(error_list, expected)
         else:
             assert RegistryResponse(**data) == expected
+
+    @pytest.mark.parametrize(
+        "uri, path, query, client_method, expected_call_params, throwable",
+        [
+            (
+                "/v2/_catalog/?last=python&n=4",
+                "/v2/_catalog/",
+                {
+                    "last": "python",
+                    "n": "4",
+                },
+                "get_catalog",
+                {"last": "python", "size": "4"},
+                None,
+            ),
+            (
+                "/v2/python/blobs/",
+                "/v2/python/blobs/",
+                {},
+                None,
+                None,
+                NotImplementedError,
+            ),
+        ],
+    )
+    def test_link_go(
+        self,
+        uri: str,
+        path: str,
+        query: dict[str, str],
+        client_method: str | None,
+        expected_call_params: dict[str, Any] | None,
+        throwable: type[NotImplementedError] | None,
+        client: RegistryClient,
+        mocker: MockerFixture,
+    ) -> None:
+        if client_method:
+            method_mock: MagicMock = mocker.patch.object(RegistryClient, client_method)
+
+        link: Link = Link.construct(uri=uri, path=path, query=query)
+        link._client = client
+
+        if throwable:
+            with pytest.raises(throwable):
+                link.go()
+        else:
+            res: MagicMock = link.go()
+            method_mock.assert_called_once_with(**expected_call_params)
+            assert isinstance(res, MagicMock)

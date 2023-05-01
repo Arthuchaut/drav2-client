@@ -31,15 +31,52 @@ class Link(BaseModel):
     """The header's link model definition.
 
     Attributes:
-        size: The maximum length of the resource's results.
-        last: The last element of the resource from which the pagination should be
-            begining.
+        uri: The URI of the link.
+        path (Optional): The path part of the URI.
+        query (Optional): The query part of the URI.
     """
 
-    size: int
-    last: str
+    uri: str
+    path: Optional[str] = ""
+    query: Optional[dict[str, str]] = Field({})
+    _client: Optional["RegistryClient"] = None
 
-    # TODO: Implement a method to query the next page
+    def __init__(self, **data: Any) -> None:
+        """The custom model constructor.
+        Parse the link URI and fill the model fields from its parts.
+
+        Args:
+            **data: The model metadata.
+        """
+
+        super().__init__(**data)
+        parsed_url: ParseResult = urlparse(self.uri)
+        self.path = parsed_url.path
+        self.query = {
+            key: val[0]
+            for key, val in parse_qs(parsed_url.query, encoding="utf8").items()
+        }
+
+    def go(self) -> "RegistryResponse[BaseModel | None]":
+        """Follow the link URI according to the implemented query method.
+
+        Raises:
+            NotImplementedError: If no method match the URI pattern.
+
+        Returns:
+            RegistryResponse[BaseModel | None]: The registry response.
+        """
+
+        if self.path.startswith("/v2/_catalog"):
+            return self._client.get_catalog(
+                size=self.query.get("n", self._client._DEFAULT_RESULT_SIZE),
+                last=self.query.get("last", ""),
+            )
+        else:
+            raise NotImplementedError(f"Method not implemented for the URI: {self.uri}")
+
+    class Config:
+        underscore_attrs_are_private: ClassVar[Literal[True]] = True
 
 
 class Range(BaseModel):
@@ -190,8 +227,7 @@ class Headers(BaseModel):
     def parse_link(cls, value: str | None) -> Link | None:
         if value and (match := _LINK_URI_PATTERN.search(value)):
             # <<uri>?n=<n from the request>&last=<last repository in response>>; rel="next"
-            qs: dict[str, list[str]] = parse_qs(urlparse(match.group("uri")).query)
-            return Link(last=qs["last"][0], size=qs["n"][0])
+            return Link(uri=match.group("uri"))
 
     @validator("docker_content_digest", pre=True)
     def validate_digest(cls, value: str | None) -> SHA256:
@@ -264,6 +300,8 @@ class RegistryResponse(BaseModel, Generic[T]):
 
         if self.headers.location is not None:
             self.headers.location._client = additional_meta.get("client")
+        if self.headers.link is not None:
+            self.headers.link._client = additional_meta.get("client")
         if isinstance(self.body, ManifestV2):
             for layer in self.body.layers:
                 layer._client = additional_meta.get("client")
