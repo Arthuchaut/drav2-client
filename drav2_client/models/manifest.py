@@ -42,6 +42,11 @@ class Layer(BaseModel):
     media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
     digest: Optional[SHA256] = None
+    name: Optional[str] = Field("", exclude=True)
+    client: Optional["RegistryClient"] = Field(None, exclude=True)
+
+    def get_blob(self, stream: bool = True) -> "RegistryResponse":
+        return self.client.get_blob(self.name, self.digest, stream=stream)
 
     @validator("digest", pre=True)
     def validate_digest(cls, value: str | None) -> SHA256:
@@ -82,7 +87,12 @@ class ManifestV2(BaseModel):
 
 
 class FsLayer(BaseModel):
-    blob_sum: Optional[str] = Field("", alias="blobSum")
+    blob_sum: Optional[SHA256] = Field("", alias="blobSum")
+    name: Optional[str] = Field("", exclude=True)
+    client: Optional["RegistryClient"] = Field(None, exclude=True)
+
+    def get_blob(self, stream: bool = True) -> "RegistryResponse":
+        return self.client.get_blob(self.name, self.blob_sum, stream=stream)
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:

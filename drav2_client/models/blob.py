@@ -14,7 +14,6 @@ class Blob(BaseModel):
     def ensure_callable(
         cls, value: Callable[[int], Iterator[bytes]] | None
     ) -> Callable[[Any], Any]:
-        print("DEBUG:", value)
         if callable(value):
             return value
 

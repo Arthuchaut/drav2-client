@@ -1,8 +1,10 @@
 from typing import Any, Callable
+from unittest.mock import MagicMock
 import warnings
 from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
+from drav2_client.client import RegistryClient
 
 from drav2_client.models.manifest import (
     Config,
@@ -237,6 +239,26 @@ class TestManifestV2:
             Layer(size=4),
         ]
         assert manifest.total_size == 20
+
+    def test_layer_get_blob(
+        self, client: RegistryClient, mocker: MockerFixture
+    ) -> None:
+        get_blob_mock: MagicMock = mocker.patch.object(RegistryClient, "get_blob")
+        manifest: ManifestV2 = ManifestV2.construct(
+            layers=[
+                Layer.construct(
+                    name="python",
+                    client=client,
+                    digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+                )
+            ]
+        )
+
+        for layer in manifest.layers:
+            res: MagicMock = layer.get_blob()
+            assert isinstance(res, MagicMock)
+
+        assert get_blob_mock.call_count == 1
 
 
 class TestManifestV1:
@@ -623,3 +645,23 @@ class TestManifestV1:
                     assert_sequences_equals(error_list, expected)
             else:
                 assert ManifestV1.parse_obj(data) == expected
+
+    def test_fs_layer_get_blob(
+        self, client: RegistryClient, mocker: MockerFixture
+    ) -> None:
+        get_blob_mock: MagicMock = mocker.patch.object(RegistryClient, "get_blob")
+        manifest: ManifestV1 = ManifestV1.construct(
+            fs_layers=[
+                FsLayer.construct(
+                    name="python",
+                    client=client,
+                    blob_sum="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
+                )
+            ]
+        )
+
+        for layer in manifest.fs_layers:
+            res: MagicMock = layer.get_blob()
+            assert isinstance(res, MagicMock)
+
+        assert get_blob_mock.call_count == 1

@@ -6,6 +6,7 @@ from typing import Any, Final, Literal, Optional
 import httpx
 from pydantic import BaseModel, Field, validator
 from urllib.parse import ParseResult, urlparse, parse_qs
+from drav2_client.models.manifest import ManifestV1, ManifestV2
 from drav2_client.types import SHA256
 
 __all__: list[str] = ["RegistryResponse", "Headers", "Link", "Range", "Location"]
@@ -39,23 +40,20 @@ class Location(BaseModel):
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-
         parsed_url: ParseResult = urlparse(self.url)
-        parsed_query: dict[str, list[str]] = {
-            key: val[0]
-            for key, val in parse_qs(parsed_url.query, encoding="utf8").items()
-        }
-        parsed_params: dict[str, list[str]] = {
+        self.scheme = parsed_url.scheme
+        self.netloc = parsed_url.netloc
+        self.path = parsed_url.path
+        self.params = {
             key: val[0]
             for key, val in parse_qs(
                 parsed_url.params, encoding="utf8", separator=";"
             ).items()
         }
-        self.scheme = parsed_url.scheme
-        self.netloc = parsed_url.netloc
-        self.path = parsed_url.path
-        self.params = parsed_params
-        self.query = parsed_query
+        self.query = {
+            key: val[0]
+            for key, val in parse_qs(parsed_url.query, encoding="utf8").items()
+        }
         self.fragment = parsed_url.fragment
 
     def go(self) -> RegistryResponse:
@@ -65,9 +63,6 @@ class Location(BaseModel):
             params=self.query,
         )
         return self.client._build_response(res)
-
-    class Config:
-        arbitrary_types_allowed: bool = True
 
 
 class Headers(BaseModel):
@@ -91,13 +86,6 @@ class Headers(BaseModel):
     content_range: Optional[Range] = Field(None, alias="content-range")
     accept_ranges: Optional[str] = Field("", alias="accept-ranges")
     link: Optional[Link] = None
-    client: Optional["RegistryClient"] = Field(None, exclude=True)
-
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-
-        if self.location is not None:
-            self.location.client = self.client
 
     @validator("date", pre=True)
     def parse_date(cls, value: str | None) -> datetime | None:
@@ -140,9 +128,6 @@ class Headers(BaseModel):
 
         return value
 
-    class Config:
-        arbitrary_types_allowed: bool = True
-
 
 class RegistryResponse(BaseModel):
     class Status(enum.IntEnum):
@@ -176,6 +161,21 @@ class RegistryResponse(BaseModel):
     status_code: RegistryResponse.Status
     headers: Headers
     body: Optional[BaseModel] = None
+    additional_meta: dict[str, Any] = Field({}, exclude=True)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+
+        if self.headers.location is not None:
+            self.headers.location.client = self.additional_meta.get("client")
+        if isinstance(self.body, ManifestV2):
+            for layer in self.body.layers:
+                layer.client = self.additional_meta.get("client")
+                layer.name = self.additional_meta.get("name")
+        if isinstance(self.body, ManifestV1):
+            for layer in self.body.fs_layers:
+                layer.client = self.additional_meta.get("client")
+                layer.name = self.body.name
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
@@ -183,3 +183,6 @@ class RegistryResponse(BaseModel):
             return kwargs["field"].default
 
         return value
+
+    class Config:
+        arbitrary_types_allowed: bool = True

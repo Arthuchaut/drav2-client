@@ -52,8 +52,10 @@ class _BaseClient:
         model: Optional[type[BaseModel]] = None,
         from_stream: bool = False,
         from_content: bool = False,
+        additional_meta: dict[str, Any] = {},
     ) -> RegistryResponse:
         result: BaseModel | None = None
+        additional_meta["client"] = self
 
         if res.status_code >= 500:
             result = Errors(errors=[Error(code=Error.Code.INTERNAL_ERROR)])
@@ -76,8 +78,9 @@ class _BaseClient:
 
         return RegistryResponse(
             status_code=res.status_code,
-            headers=Headers.parse_obj(dict(res.headers) | {"client": self}),
+            headers=Headers.parse_obj(res.headers),
             body=result,
+            additional_meta=additional_meta,
         )
 
 
@@ -125,12 +128,14 @@ class RegistryClient(_BaseClient):
         headers: dict[str, str] = self._auth_header
         headers |= {"Accept": media_type}
         res: httpx.Response = self._client.get(url, headers=headers)
-        model: type[BaseModel] = ManifestV2
+        model: type[BaseModel] = ManifestV1
+        additional_meta: dict[str, Any] = {}
 
-        if media_type is MediaType.SIGNED_MANIFEST_V1:
-            model = ManifestV1
+        if media_type is MediaType.MANIFEST_V2:
+            model = ManifestV2
+            additional_meta["name"] = name
 
-        return self._build_response(res, model=model)
+        return self._build_response(res, model=model, additional_meta=additional_meta)
 
     def get_blob(
         self, name: str, digest: SHA256, *, stream: bool = False
@@ -232,6 +237,3 @@ class RegistryClient(_BaseClient):
         headers |= self._auth_header
         res: httpx.Response = self._client.delete(url, headers=headers)
         return self._build_response(res)
-
-
-Headers.update_forward_refs(RegistryClient=RegistryClient)
