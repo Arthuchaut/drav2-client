@@ -1,6 +1,5 @@
 from typing import Any, Callable
 from unittest.mock import MagicMock
-import warnings
 from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
@@ -247,14 +246,14 @@ class TestManifestV2:
         manifest: ManifestV2 = ManifestV2.construct(
             layers=[
                 Layer.construct(
-                    name="python",
-                    client=client,
                     digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                 )
             ]
         )
 
         for layer in manifest.layers:
+            layer._name = "python"
+            layer._client = client
             res: MagicMock = layer.get_blob()
             assert isinstance(res, MagicMock)
 
@@ -653,14 +652,14 @@ class TestManifestV1:
         manifest: ManifestV1 = ManifestV1.construct(
             fs_layers=[
                 FsLayer.construct(
-                    name="python",
-                    client=client,
                     blob_sum="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440",
                 )
             ]
         )
 
         for layer in manifest.fs_layers:
+            layer._name = "python"
+            layer._client = client
             res: MagicMock = layer.get_blob()
             assert isinstance(res, MagicMock)
 

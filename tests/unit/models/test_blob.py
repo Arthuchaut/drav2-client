@@ -1,66 +1,45 @@
-from typing import Any, Callable
-from pydantic import ValidationError
 import pytest
-from drav2_client.models.blob import Blob
-from conftest import fake_iter_bytes
+from drav2_client.models.blob import Blob, UnreadableError
+from conftest import MockedResponse
 
 
 class TestBlob:
     @pytest.mark.parametrize(
-        "data, expected, throwable",
+        "obj, expected, throwable",
         [
             (
-                {
-                    "content": b"hello world!",
-                },
-                Blob.construct(
-                    content=b"hello world!",
-                    iter_bytes=Blob._undefined_iter_bytes,
+                Blob(
+                    res=MockedResponse(status_code=200, headers={}, text="hello world!")
                 ),
+                b"hello world!",
                 None,
             ),
             (
-                {},
-                Blob.construct(iter_bytes=Blob._undefined_iter_bytes),
+                Blob(res=MockedResponse(status_code=200, headers={}, text="")),
+                b"",
                 None,
             ),
             (
-                {
-                    "iter_bytes": fake_iter_bytes,
-                },
-                Blob.construct(iter_bytes=fake_iter_bytes),
-                None,
-            ),
-            (
-                {
-                    "content": [],
-                    "iter_bytes": "world",
-                },
-                (".content",),
-                ValidationError,
+                Blob(
+                    res=MockedResponse(
+                        status_code=200,
+                        headers={},
+                        text="hello world!",
+                        stream_mode=True,
+                    )
+                ),
+                b"hello world!",
+                UnreadableError,
             ),
         ],
     )
-    def test_init(
-        self,
-        data: dict[str, Any],
-        expected: Blob | tuple[str, ...],
-        throwable: type[ValidationError] | None,
-        extract_error_list: Callable[[Any], Any],
-        assert_sequences_equals: Callable[[Any], Any],
+    def test_access_bytes(
+        self, obj: Blob, expected: bytes | None, throwable: type[UnreadableError] | None
     ) -> None:
         if throwable:
-            try:
-                Blob.parse_obj(data)
-                raise AssertionError(f"Did not raise {throwable}")  # pragma: no cover
-            except throwable as e:
-                error_list: list[str] = extract_error_list(e)
-                assert_sequences_equals(error_list, expected)
+            with pytest.raises(throwable):
+                obj.content
         else:
-            assert Blob.parse_obj(data) == expected
+            assert obj.content == expected
 
-    def test_blob_with_undefined_iter_bytes(self) -> None:
-        blob: Blob = Blob(content=b"hello")
-
-        with pytest.raises(NotImplementedError):
-            blob.iter_bytes()
+        assert b"".join([*obj.iter_bytes()]) == expected

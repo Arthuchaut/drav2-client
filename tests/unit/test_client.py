@@ -1,6 +1,5 @@
 import json
 from typing import Any, Callable, Iterator
-from unittest.mock import ANY, MagicMock
 import warnings
 import httpx
 from pydantic import BaseModel
@@ -10,12 +9,12 @@ from conftest import _FAKE_BASE_URL
 from drav2_client.client import *
 from drav2_client.models import *
 from drav2_client.types import MediaType
-from conftest import fake_iter_bytes, MockedResponse
+from conftest import MockedResponse
 
 
 class TestBaseClient:
     @pytest.mark.parametrize(
-        "res, model, from_stream, from_content",
+        "res, model, from_bytes",
         [
             (
                 httpx.Response(
@@ -25,7 +24,6 @@ class TestBaseClient:
                     request=None,
                 ),
                 Tags,
-                False,
                 False,
             ),
             (
@@ -37,18 +35,6 @@ class TestBaseClient:
                 ),
                 Catalog,
                 False,
-                False,
-            ),
-            (
-                httpx.Response(
-                    200,
-                    headers={"date": "Sat, 01 Apr 2023 23:18:26 GMT"},
-                    content=b"Hello!",
-                    request=None,
-                ),
-                Blob,
-                False,
-                True,
             ),
             (
                 httpx.Response(
@@ -59,7 +45,6 @@ class TestBaseClient:
                 ),
                 Blob,
                 True,
-                False,
             ),
             (
                 httpx.Response(
@@ -69,7 +54,6 @@ class TestBaseClient:
                     request=None,
                 ),
                 None,
-                False,
                 False,
             ),
             (
@@ -81,7 +65,6 @@ class TestBaseClient:
                 ),
                 None,
                 False,
-                False,
             ),
             (
                 httpx.Response(
@@ -91,7 +74,6 @@ class TestBaseClient:
                 ),
                 None,
                 False,
-                False,
             ),
         ],
     )
@@ -99,8 +81,7 @@ class TestBaseClient:
         self,
         res: httpx.Response,
         model: type[BaseModel] | None,
-        from_stream: bool,
-        from_content: bool,
+        from_bytes: bool,
         client: RegistryClient,
         mocker: MockerFixture,
     ) -> None:
@@ -114,17 +95,13 @@ class TestBaseClient:
         elif res.status_code >= 400:
             expected.body = Errors.parse_obj(res.json())
         elif model:
-            if from_stream:
-                expected.body = model.parse_obj(
-                    dict(iter_bytes=client._bytes_iterator(res))
-                )
-            elif from_content:
-                expected.body = model.parse_obj(dict(content=res.content))
+            if from_bytes:
+                expected.body = model(res=res)
             else:
                 expected.body = model.parse_obj(res.json())
 
         res: RegistryResponse = client._build_response(
-            res, model=model, from_stream=from_stream, from_content=from_content
+            res, model=model, from_bytes=from_bytes
         )
         assert res == expected
 
@@ -394,15 +371,11 @@ class TestClient:
                 RegistryResponse(
                     status_code=200,
                     headers=Headers(),
-                    body=Blob(content=b"hello world!"),
-                ),
-            ),
-            (
-                False,
-                RegistryResponse(
-                    status_code=200,
-                    headers=Headers(),
-                    body=Blob(content=b""),
+                    body=Blob(
+                        res=MockedResponse(
+                            status_code=200, headers={}, text="hello world!"
+                        )
+                    ),
                 ),
             ),
             (
@@ -410,7 +383,14 @@ class TestClient:
                 RegistryResponse(
                     status_code=200,
                     headers=Headers(),
-                    body=Blob(content=b"hello world!"),
+                    body=Blob(
+                        res=MockedResponse(
+                            status_code=200,
+                            headers={},
+                            text="hello world!",
+                            stream_mode=True,
+                        )
+                    ),
                 ),
             ),
             (
@@ -479,14 +459,10 @@ class TestClient:
         send_patch: Callable[[Any], Any],
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(
-            RegistryClient, "_bytes_iterator", lambda *a, **k: fake_iter_bytes
-        )
-
         if isinstance(expected.body, Blob):
             patch: Callable[[Any], Any] = send_patch(
                 r"\w+/blobs/\w+",
-                bytes_obj=expected.body.content,
+                bytes_obj=b"hello world!",
                 status_code=expected.status_code,
             )
         else:
@@ -495,10 +471,6 @@ class TestClient:
                 dict_obj=expected.body.dict(),
                 status_code=expected.status_code,
             )
-
-        if stream and expected.status_code is RegistryResponse.Status.OK:
-            expected.body.content = None
-            expected.body.iter_bytes = fake_iter_bytes
 
         mocker.patch.object(httpx.Client, "send", patch)
         res: RegistryResponse = client.get_blob(

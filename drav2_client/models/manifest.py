@@ -42,11 +42,11 @@ class Layer(BaseModel):
     media_type: Optional[MediaType] = Field(None, alias="mediaType")
     size: Optional[int] = None
     digest: Optional[SHA256] = None
-    name: Optional[str] = Field("", exclude=True)
-    client: Optional["RegistryClient"] = Field(None, exclude=True)
+    _name: Optional[str] = ""
+    _client: Optional["RegistryClient"] = None
 
     def get_blob(self, stream: bool = True) -> "RegistryResponse":
-        return self.client.get_blob(self.name, self.digest, stream=stream)
+        return self._client.get_blob(self._name, self.digest, stream=stream)
 
     @validator("digest", pre=True)
     def validate_digest(cls, value: str | None) -> SHA256:
@@ -62,6 +62,9 @@ class Layer(BaseModel):
             return kwargs["field"].default
 
         return value
+
+    class Config:
+        underscore_attrs_are_private: bool = True
 
 
 class ManifestV2(BaseModel):
@@ -88,11 +91,11 @@ class ManifestV2(BaseModel):
 
 class FsLayer(BaseModel):
     blob_sum: Optional[SHA256] = Field("", alias="blobSum")
-    name: Optional[str] = Field("", exclude=True)
-    client: Optional["RegistryClient"] = Field(None, exclude=True)
+    _name: Optional[str] = ""
+    _client: Optional["RegistryClient"] = None
 
     def get_blob(self, stream: bool = True) -> "RegistryResponse":
-        return self.client.get_blob(self.name, self.blob_sum, stream=stream)
+        return self._client.get_blob(self._name, self.blob_sum, stream=stream)
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
@@ -100,6 +103,9 @@ class FsLayer(BaseModel):
             return kwargs["field"].default
 
         return value
+
+    class Config:
+        underscore_attrs_are_private: bool = True
 
 
 class HistoryItem(BaseModel):

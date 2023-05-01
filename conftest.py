@@ -11,21 +11,36 @@ _FAKE_BASE_URL: Final[str] = "http://fake_host/v2/"
 
 
 class MockedResponse:
-    def __init__(self, status_code: int, headers: dict[str, str], text: str) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        headers: dict[str, str],
+        text: str,
+        stream_mode: bool = False,
+    ) -> None:
         self.status_code: int = status_code
         self.headers: dict[str, str] = headers
         self.text: str = text
-        self.content: bytes = text.encode("utf8")
+        self._stream_mode: bool = stream_mode
+
+    @property
+    def content(self) -> bytes:
+        if self._stream_mode:
+            raise httpx.ResponseNotRead()
+
+        return self.text.encode("utf8")
 
     def json(self) -> dict[str, Any]:
         return json.loads(self.text)
 
     def iter_bytes(self, chunk_size: int | None = None) -> Iterator[bytes]:
-        if chunk_size is None or len(self.content) >= chunk_size:
-            yield self.content
+        fake_content: bytes = self.text.encode("utf8")
+
+        if chunk_size is None or len(fake_content) >= chunk_size:
+            yield fake_content
         else:
-            for chunk_loc in range(0, len(self.content), chunk_size):
-                yield self.content[chunk_loc : chunk_loc + chunk_size]
+            for chunk_loc in range(0, len(fake_content), chunk_size):
+                yield fake_content[chunk_loc : chunk_loc + chunk_size]
 
     def close(self) -> None:
         pass
@@ -139,7 +154,3 @@ def assert_sequences_equals() -> Callable[[Any], Any]:
             ) from None  # pragma: no cover
 
     return wrapper
-
-
-def fake_iter_bytes(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
-    pass

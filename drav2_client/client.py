@@ -1,7 +1,7 @@
 import base64
 from functools import cached_property
 import json
-from typing import Any, ClassVar, Iterable, Iterator, Literal, Optional
+from typing import Any, ClassVar, Iterator, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
@@ -50,8 +50,7 @@ class _BaseClient:
         res: httpx.Response,
         *,
         model: Optional[type[BaseModel]] = None,
-        from_stream: bool = False,
-        from_content: bool = False,
+        from_bytes: bool = False,
         additional_meta: dict[str, Any] = {},
     ) -> RegistryResponse:
         result: BaseModel | None = None
@@ -60,19 +59,10 @@ class _BaseClient:
         if res.status_code >= 500:
             result = Errors(errors=[Error(code=Error.Code.INTERNAL_ERROR)])
         elif res.status_code >= 400:
-            obj: dict[str, Any]
-
-            if from_stream:  # Because sparse is better than dense...
-                obj = json.loads(*res.iter_bytes())
-            else:
-                obj = res.json()
-
-            result = Errors.parse_obj(obj)
+            result = Errors.parse_obj(json.loads(*res.iter_bytes()))
         elif model:
-            if from_stream:
-                result = model.parse_obj(dict(iter_bytes=self._bytes_iterator(res)))
-            elif from_content:
-                result = model.parse_obj(dict(content=res.content))
+            if from_bytes:
+                result = model(res=res)
             else:
                 result = model.parse_obj(res.json())
 
@@ -147,9 +137,7 @@ class RegistryClient(_BaseClient):
             "GET", url, headers=self._auth_header
         )
         res: httpx.Response = self._client.send(req, stream=stream)
-        return self._build_response(
-            res, model=Blob, from_stream=stream, from_content=not stream
-        )
+        return self._build_response(res, model=Blob, from_bytes=True)
 
     def put_manifest(
         self, name: str, reference: str, manifest: ManifestV1 | ManifestV2

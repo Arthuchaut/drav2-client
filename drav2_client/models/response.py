@@ -9,7 +9,13 @@ from urllib.parse import ParseResult, urlparse, parse_qs
 from drav2_client.models.manifest import ManifestV1, ManifestV2
 from drav2_client.types import SHA256
 
-__all__: list[str] = ["RegistryResponse", "Headers", "Link", "Range", "Location"]
+__all__: list[str] = [
+    "RegistryResponse",
+    "Headers",
+    "Link",
+    "Range",
+    "Location",
+]
 
 _LINK_URI_PATTERN: Final[re.Pattern] = re.compile(r"<(?P<uri>.+)>")
 _RANGE_PATTERN: Final[re.Pattern] = re.compile(
@@ -161,21 +167,22 @@ class RegistryResponse(BaseModel):
     status_code: RegistryResponse.Status
     headers: Headers
     body: Optional[BaseModel] = None
-    additional_meta: dict[str, Any] = Field({}, exclude=True)
 
-    def __init__(self, **data: Any) -> None:
+    def __init__(
+        self, *, additional_meta: Optional[dict[str, Any]] = {}, **data: Any
+    ) -> None:
         super().__init__(**data)
 
         if self.headers.location is not None:
-            self.headers.location.client = self.additional_meta.get("client")
+            self.headers.location.client = additional_meta.get("client")
         if isinstance(self.body, ManifestV2):
             for layer in self.body.layers:
-                layer.client = self.additional_meta.get("client")
-                layer.name = self.additional_meta.get("name")
+                layer._client = additional_meta.get("client")
+                layer._name = additional_meta.get("name")
         if isinstance(self.body, ManifestV1):
             for layer in self.body.fs_layers:
-                layer.client = self.additional_meta.get("client")
-                layer.name = self.body.name
+                layer._client = additional_meta.get("client")
+                layer._name = self.body.name
 
     @validator("*")
     def force_default(cls, value: Any, values: dict[str, Any], **kwargs: Any) -> Any:
@@ -183,6 +190,3 @@ class RegistryResponse(BaseModel):
             return kwargs["field"].default
 
         return value
-
-    class Config:
-        arbitrary_types_allowed: bool = True
