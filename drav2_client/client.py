@@ -23,10 +23,19 @@ class _BaseClient:
     def __init__(
         self,
         base_url: str,
-        user_id: Optional[str] = None,
-        password: Optional[str] = None,
+        user_id: Optional[str] = None,  # TODO: Define a Loggin dataclass.
+        password: Optional[str] = None,  # TODO: Define a Loggin dataclass.
         transport: Optional[AnyTransport] = None,
     ) -> None:
+        """The constructor.
+
+        Args:
+            base_url: The registry API base url. Should contains the version too.
+            user_id (Optional): The user ID used for the registry authentication.
+            password (Optional): The password used for the registry authentication.
+            transport (Optional): The HTTP transport that will be used by the client.
+        """
+
         self.base_url: str = base_url
         self._client: httpx.Client = httpx.Client(transport=transport)
         self._user_id: str | None = user_id
