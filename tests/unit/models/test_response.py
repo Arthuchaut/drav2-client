@@ -1,6 +1,7 @@
 import datetime
 from typing import Any, Callable
 from unittest.mock import MagicMock
+import httpx
 from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
@@ -149,6 +150,28 @@ class TestResponse:
                 assert_sequences_equals(error_list, expected)
         else:
             assert RegistryResponse(**data) == expected
+
+    def test_location_go(
+        self,
+        client: RegistryClient,
+        request_patch: Callable[[Any], Any],
+        mocker: MockerFixture,
+    ) -> None:
+        patch: Callable[[Any], Any] = request_patch(r".+", status_code=200)
+        mocker.patch.object(httpx.Client, "get", patch)
+        expected_res: RegistryResponse = RegistryResponse(
+            status_code=200, headers=Headers()
+        )
+        initial_res: RegistryResponse = RegistryResponse.construct(
+            headers=Headers.construct(
+                location=Location(
+                    url="http://fake_host/v2/path/to/my/resource/?key=val",
+                )
+            )
+        )
+        initial_res.headers.location._client = client
+        location_res: RegistryResponse = initial_res.headers.location.go()
+        assert location_res == expected_res
 
     @pytest.mark.parametrize(
         "uri, path, query, client_method, expected_call_params, throwable",

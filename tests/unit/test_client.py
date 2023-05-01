@@ -1059,25 +1059,3 @@ class TestClient:
             name="python", uuid="abcd-efgh-ijkl-mnop"
         )
         assert res == expected
-
-    def test_location_go(
-        self,
-        client: RegistryClient,
-        request_patch: Callable[[Any], Any],
-        mocker: MockerFixture,
-    ) -> None:
-        patch: Callable[[Any], Any] = request_patch(r".+", status_code=200)
-        mocker.patch.object(httpx.Client, "get", patch)
-        expected_res: RegistryResponse = RegistryResponse(
-            status_code=200, headers=Headers()
-        )
-        initial_res: RegistryResponse = RegistryResponse.construct(
-            headers=Headers.construct(
-                location=Location(
-                    url="http://fake_host/v2/path/to/my/resource/?key=val",
-                )
-            )
-        )
-        initial_res.headers.location._client = client
-        location_res: RegistryResponse = initial_res.headers.location.go()
-        assert location_res == expected_res

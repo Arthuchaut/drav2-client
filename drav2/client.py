@@ -1,4 +1,3 @@
-import base64
 from functools import cached_property
 import json
 from typing import Any, ClassVar, Literal, Optional
