@@ -1059,3 +1059,42 @@ class TestClient:
             name="python", uuid="abcd-efgh-ijkl-mnop"
         )
         assert res == expected
+
+    def test_iget_catalog(self, client: RegistryClient, mocker: MockerFixture) -> None:
+        repositories: list[str] = ["aaa", "bbb", "ccc", "ddd", "eee", "fff"]
+        retrieved_repos: list[str] = []
+
+        def get_catalog_patch(
+            self, size: int = client._DEFAULT_RESULT_SIZE, last: str = ""
+        ) -> RegistryResponse[Catalog]:
+            link: Link | None = None
+            last_index: int = int(size)
+
+            if last:
+                last_index = repositories.index(last) + int(size)
+
+            if last_index <= len(repositories):
+                link = Link.construct(
+                    uri=f"/v2/_catalog/",
+                    path="/v2/_catalog/",
+                    query={
+                        "last": repositories[last_index - 1],
+                        "n": str(size),
+                    },
+                )
+                link._client = client
+
+            return RegistryResponse.construct(
+                status_code=200,
+                headers=Headers.construct(link=link),
+                body=Catalog.construct(
+                    repositories=repositories[last_index - int(size) : last_index - 1]
+                ),
+            )
+
+        mocker.patch.object(RegistryClient, "get_catalog", get_catalog_patch)
+
+        for res in client.iget_catalog(size=2):
+            retrieved_repos += res.body.repositories
+
+        assert retrieved_repos == repositories

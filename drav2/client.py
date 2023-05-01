@@ -1,6 +1,6 @@
 from functools import cached_property
 import json
-from typing import Any, ClassVar, Literal, Optional
+from typing import Any, ClassVar, Iterator, Literal, Optional
 from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
@@ -408,3 +408,27 @@ class RegistryClient(_BaseClient):
         headers |= self._auth_header
         res: httpx.Response = self._client.delete(url, headers=headers)
         return self._build_response(res)
+
+    def iget_catalog(
+        self, *, size: int = _DEFAULT_RESULT_SIZE, last: str = ""
+    ) -> Iterator[RegistryResponse[Catalog | Error]]:
+        """Iterate through the whole repositories catalog.
+        This method is intended to avoid taking care of the link header from the
+        registry response.
+
+        Args:
+            size (Optional): The maximum results of the given page. Default to
+                _DEFAULT_RESULT_SIZE.
+            last (Optional): The last item of the results that will be used to query
+                the next page.
+
+        Returns:
+            Iterator[RegistryResponse[Catalog | Error]]: The repositories iterator.
+        """
+
+        res: RegistryResponse[Catalog | Error] = self.get_catalog(size=size, last=last)
+        yield res
+
+        while res.headers.link:
+            res = res.headers.link.go()
+            yield res
