@@ -10,6 +10,7 @@ from drav2.models import *
 
 __all__: list[str] = [
     "RegistryClient",
+    "Logins",
 ]
 
 
@@ -23,36 +24,31 @@ class _BaseClient:
     def __init__(
         self,
         base_url: str,
-        user_id: Optional[str] = None,  # TODO: Define a Loggin dataclass.
-        password: Optional[str] = None,  # TODO: Define a Loggin dataclass.
+        logins: Optional[Logins] = None,
         transport: Optional[AnyTransport] = None,
     ) -> None:
         """The constructor.
 
         Args:
             base_url: The registry API base url. Should contains the version too.
-            user_id (Optional): The user ID used for the registry authentication.
-            password (Optional): The password used for the registry authentication.
+            logins (Optional): The credentials for the registry authentication.
             transport (Optional): The HTTP transport that will be used by the client.
         """
 
         self.base_url: str = base_url
         self._client: httpx.Client = httpx.Client(transport=transport)
-        self._user_id: str | None = user_id
-        self._password: str | None = password
+        self._logins: Logins | None = logins
 
     @cached_property
     def _auth_header(self) -> dict[str, str]:
-        """Build the authorization header according to the given loggins if exists.
+        """Build the authorization header according to the given logins if exists.
 
         Returns:
-            dict[str, str]: The authorization header. Default to {} of no loggins given.
+            dict[str, str]: The authorization header. Default to {} of no logins given.
         """
 
-        if self._user_id and self._password:
-            fmt: str = f"{self._user_id}:{self._password}"
-            basic: str = base64.b64encode(fmt.encode("utf8")).decode("utf8")
-            return {"Authorization": f"Basic {basic}"}
+        if self._logins:
+            return {"Authorization": f"Basic {self._logins.b64_encoded}"}
 
         return {}
 

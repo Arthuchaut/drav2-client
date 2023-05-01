@@ -108,16 +108,18 @@ class TestBaseClient:
         "user_id, password, expected",
         [
             ("user", "password", {"Authorization": "Basic dXNlcjpwYXNzd29yZA=="}),
-            ("", "", {}),
             (None, None, {}),
         ],
     )
     def test__auth_client_property(
         self, user_id: str | None, password: str | None, expected: dict[str, str]
     ) -> None:
-        client: RegistryClient = RegistryClient(
-            _FAKE_BASE_URL, user_id=user_id, password=password
-        )
+        logins: Logins | None = None
+
+        if None not in (user_id, password):
+            logins: Logins = Logins(user_id=user_id, password=password)
+
+        client: RegistryClient = RegistryClient(_FAKE_BASE_URL, logins=logins)
         assert client._auth_header == expected
 
 
