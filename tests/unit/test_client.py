@@ -7,6 +7,7 @@ import pytest
 from pytest_mock import MockerFixture
 from conftest import _FAKE_BASE_URL
 from drav2.client import *
+from drav2.errors import *
 from drav2.models import *
 from drav2.types import MediaType
 from conftest import MockedResponse
@@ -546,6 +547,54 @@ class TestClient:
             name="python", reference="latest"
         )
         assert res == expected
+
+    @pytest.mark.parametrize(
+        "manifest_response, expected, throwable",
+        [
+            (
+                RegistryResponse.construct(
+                    status_code=200,
+                    headers=Headers.construct(
+                        docker_content_digest="sha256:54e726b437fb92dd7b43f4dd5cd79b01a1e96a22849b2fc2ffeb34fac2d65440"
+                    ),
+                ),
+                RegistryResponse.construct(status_code=202),
+                None,
+            ),
+            (
+                RegistryResponse.construct(status_code=404),
+                RegistryResponse.construct(status_code=404),
+                None,
+            ),
+            (
+                RegistryResponse.construct(
+                    status_code=200,
+                    headers=Headers.construct(),
+                ),
+                None,
+                DigestNotFoundError,
+            ),
+        ],
+    )
+    def test_delete_repository(
+        self,
+        manifest_response: RegistryResponse[None],
+        expected: RegistryResponse[None] | None,
+        throwable: type[DigestNotFoundError] | None,
+        client: RegistryClient,
+        mocker: MockerFixture,
+    ) -> None:
+        mocker.patch.object(
+            RegistryClient, "get_manifest", lambda *a, **k: manifest_response
+        )
+        mocker.patch.object(RegistryClient, "delete_manifest", lambda *a, **k: expected)
+
+        if throwable:
+            with pytest.raises(throwable):
+                client.delete_repository("python", "latest")
+        else:
+            res: RegistryResponse[None] = client.delete_repository("python", "latest")
+            assert res == expected
 
     @pytest.mark.parametrize(
         "expected",

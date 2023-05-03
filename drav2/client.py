@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
 from drav2.types import SHA256, AnyTransport, MediaType
+from drav2.errors import DigestNotFoundError
 from drav2.models import *
 
 __all__: list[str] = [
@@ -248,7 +249,7 @@ class RegistryClient(_BaseClient):
 
         Args:
             name: The repository name.
-            reference: The repository reference (should be a tag name).
+            reference: The repository reference (should be a tag name or a digest).
 
         Returns:
             RegistryResponse[None | Error]: The registry response.
@@ -258,6 +259,35 @@ class RegistryClient(_BaseClient):
         headers: dict[str, str] = self._auth_header
         res: httpx.Response = self._client.delete(url, headers=headers)
         return self._build_response(res)
+
+    def delete_repository(
+        self, name: str, reference: str
+    ) -> RegistryResponse[None | Error]:
+        """Delete the repository with its manifest and blobs from the remote registry.
+
+        Args:
+            name: The repository name.
+            reference: The repository reference (should be a tag name).
+
+        Raises:
+            DigestNotFoundError: If the manifest of the repository does not contain
+                a content digest.
+
+        Returns:
+            RegistryResponse[None | Error]: The registry response.
+        """
+
+        manifest: RegistryResponse[ManifestV2 | Error] = self.get_manifest(
+            name, reference, media_type=MediaType.MANIFEST_V2
+        )
+
+        if manifest.status_code != RegistryResponse.Status.OK:
+            return manifest
+
+        if not manifest.headers.docker_content_digest:
+            raise DigestNotFoundError(f"Unable to get the content digest.")
+
+        return self.delete_manifest(name, manifest.headers.docker_content_digest)
 
     def delete_blob(self, name: str, digest: SHA256) -> RegistryResponse[None | Error]:
         """Delete a blob from the registry.
